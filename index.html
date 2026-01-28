@@ -5,6 +5,7 @@
   <title>Easy Hasher • True Blue Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="/favicon.ico">
+  <link rel="icon" href="IMG/true_blue_analytics_transparent.png">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
     :root{
@@ -30,8 +31,15 @@
       color:var(--ink);
       font-family:"Montserrat",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
       letter-spacing:.1px;
-      min-height:100vh;
     }
+    /* make footer stick to bottom */
+    body{
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+      position:relative;
+    }
+
     .dotgrid:before{
       content:"";
       position:fixed;
@@ -102,6 +110,8 @@
       padding:0 1.25rem 2rem 1.25rem;
       max-width:1200px;
       margin:0 auto;
+      flex:1 0 auto; /* grow to fill, keeps footer at bottom */
+      width:100%;
     }
     .hero{
       display:flex;
@@ -375,6 +385,8 @@
       color:#fff;
       border-top:1px solid var(--line);
       margin-top:1.5rem;
+      width:100%;
+      flex-shrink:0; /* keep the footer from shrinking up */
     }
     .footerwrap{
       max-width:1200px;
@@ -1801,4 +1813,3 @@
   </script>
 </body>
 </html>
-
