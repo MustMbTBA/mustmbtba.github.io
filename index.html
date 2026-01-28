@@ -547,11 +547,12 @@
 
     <section class="tabs">
       <div class="tab-buttons">
-        <button class="tab-btn active" data-tab="standard">Standard</button>
-        <button class="tab-btn" data-tab="advanced">Advanced</button>
-        <button class="tab-btn" data-tab="combine">Combine</button>
+        <button type="button" class="tab-btn active" data-tab="standard">Standard</button>
+        <button type="button" class="tab-btn" data-tab="advanced">Advanced</button>
+        <button type="button" class="tab-btn" data-tab="combine">Combine</button>
       </div>
 
+      <!-- STANDARD TAB -->
       <div id="tab-standard" class="tab-panel active">
         <div class="card-title-row">
           <h2 style="margin:0;">Standard hashing</h2>
@@ -563,7 +564,7 @@
           <div class="col-2">
             <label for="std-file">Upload a file</label>
             <input id="std-file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsb">
-            <div class="hint">Large files run entirely in your browser; for very big datasets you may prefer a backend solution.</div>
+            <div class="hint">Large files run entirely in your browser; extremely big datasets may hit memory limits.</div>
           </div>
           <div class="col-2">
             <label for="std-hash">Hash type</label>
@@ -578,11 +579,11 @@
               <label for="std-norm" style="margin:0; font-weight:500;">Normalize to 10-digit phones (auto-detect)</label>
             </div>
             <div class="checkbox-row">
-              <input id="std-upper-input" type="checkbox">
+              <input id="std-upper-input" type="checkbox" checked>
               <label for="std-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
             </div>
             <div class="checkbox-row">
-              <input id="std-upper-hash" type="checkbox">
+              <input id="std-upper-hash" type="checkbox" checked>
               <label for="std-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
             </div>
           </div>
@@ -590,10 +591,12 @@
         <div class="row" style="margin-top:.6rem;">
           <div class="col-2">
             <label for="std-col">Column to hash</label>
-            <select id="std-col"></select>
+            <select id="std-col">
+              <option value="">Upload a file to populate columns…</option>
+            </select>
           </div>
           <div class="col-2" style="display:flex; align-items:flex-end;">
-            <button id="std-go" class="btn btn-block" disabled>Hash now</button>
+            <button id="std-go" class="btn btn-block" type="button" disabled>Hash now</button>
           </div>
         </div>
         <div id="std-status" class="status info"></div>
@@ -604,6 +607,7 @@
         <div id="std-download-wrap" style="margin-top:.5rem;"></div>
       </div>
 
+      <!-- ADVANCED TAB -->
       <div id="tab-advanced" class="tab-panel">
         <div class="card-title-row">
           <h2 style="margin:0;">Advanced hashing</h2>
@@ -628,8 +632,10 @@
           </div>
           <div class="col-3">
             <label for="adv-cols">Columns to hash</label>
-            <select id="adv-cols" multiple class="multi-select"></select>
-            <div class="hint">Click to toggle columns (no Ctrl needed). If none selected for a file, its first column is used.</div>
+            <select id="adv-cols" multiple class="multi-select">
+              <!-- populated after files load -->
+            </select>
+            <div class="hint">Click items to toggle. If none selected for a file, its first column is used.</div>
             <div id="adv-chips" class="chips-row"></div>
           </div>
           <div class="col-3">
@@ -640,11 +646,11 @@
               <label for="adv-norm" style="margin:0; font-weight:500;">Normalize to 10-digit phones (auto-detect per column)</label>
             </div>
             <div class="checkbox-row">
-              <input id="adv-upper-input" type="checkbox">
+              <input id="adv-upper-input" type="checkbox" checked>
               <label for="adv-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
             </div>
             <div class="checkbox-row">
-              <input id="adv-upper-hash" type="checkbox">
+              <input id="adv-upper-hash" type="checkbox" checked>
               <label for="adv-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
             </div>
           </div>
@@ -678,10 +684,10 @@
 
         <div class="row" style="margin-top:.4rem; align-items:center;">
           <div class="col-2">
-            <button id="adv-preview-btn" class="btn secondary btn-block">Update preview</button>
+            <button id="adv-preview-btn" class="btn secondary btn-block" type="button">Update preview</button>
           </div>
           <div class="col-2">
-            <button id="adv-run-btn" class="btn btn-block">Run hashing</button>
+            <button id="adv-run-btn" class="btn btn-block" type="button">Run hashing</button>
           </div>
         </div>
 
@@ -692,6 +698,7 @@
         <div id="adv-downloads" class="downloads-list"></div>
       </div>
 
+      <!-- COMBINE TAB -->
       <div id="tab-combine" class="tab-panel">
         <div class="card-title-row">
           <h2 style="margin:0;">Combine files</h2>
@@ -728,7 +735,7 @@
 
         <div class="row" style="margin-top:.6rem;">
           <div class="col-2">
-            <button id="combine-go" class="btn btn-block">Combine files</button>
+            <button id="combine-go" class="btn btn-block" type="button">Combine files</button>
           </div>
         </div>
         <div id="combine-status" class="status info"></div>
@@ -748,6 +755,7 @@
     </div>
   </div>
 
+  <!-- JS LIBS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -772,11 +780,13 @@
     function showLoading(message) {
       const overlay = document.getElementById("loading-overlay");
       const text = document.getElementById("loading-text");
+      if (!overlay || !text) return;
       text.textContent = message || "Working...";
       overlay.classList.add("visible");
     }
     function hideLoading() {
       const overlay = document.getElementById("loading-overlay");
+      if (!overlay) return;
       overlay.classList.remove("visible");
     }
     function baseName(name) {
@@ -816,7 +826,7 @@
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
-      });
+      }
       table.appendChild(tbody);
       wrap.appendChild(table);
       container.appendChild(wrap);
@@ -1159,6 +1169,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      // Tabs
       const tabButtons = document.querySelectorAll(".tab-btn");
       const tabPanels = document.querySelectorAll(".tab-panel");
       tabButtons.forEach(btn => {
@@ -1172,6 +1183,7 @@
         });
       });
 
+      // STANDARD TAB
       const stdFileInput = document.getElementById("std-file");
       const stdHashSelect = document.getElementById("std-hash");
       const stdNormCheckbox = document.getElementById("std-norm");
@@ -1182,20 +1194,20 @@
       const stdStatus = document.getElementById("std-status");
 
       function runStandardPreview() {
-        if (!stdSampleData || !stdSampleData.headers.length || !stdSampleData.rows.length) return;
-        const colName = stdColSelect.value;
+        if (!stdSampleData || !stdSampleData.headers || !stdSampleData.rows) return;
+        const colName = stdColSelect && stdColSelect.value;
         if (!colName) return;
         const idx = stdSampleData.headers.indexOf(colName);
         if (idx === -1) return;
         const values = stdSampleData.rows.map(r => r[idx]);
         const normalizedSeries = seriesForHash(
           values,
-          stdNormCheckbox.checked,
+          stdNormCheckbox && stdNormCheckbox.checked,
           colName,
-          stdUpperInputCheckbox.checked
+          stdUpperInputCheckbox && stdUpperInputCheckbox.checked
         );
         const hashed = normalizedSeries.map(v =>
-          hashValue(v, stdHashSelect.value, stdUpperHashCheckbox.checked)
+          hashValue(v, stdHashSelect ? stdHashSelect.value : "md5", stdUpperHashCheckbox && stdUpperHashCheckbox.checked)
         );
         const unique = [];
         const seen = new Set();
@@ -1209,19 +1221,27 @@
       }
 
       async function handleStandardFileChange() {
+        if (!stdFileInput || !stdStatus || !stdColSelect || !stdGoBtn) return;
         stdStatus.className = "status info";
         stdStatus.textContent = "Reading file...";
         stdBlob = null;
         stdSampleData = null;
         stdCurrentFile = null;
-        document.getElementById("std-result").innerHTML = "";
-        document.getElementById("std-download-wrap").innerHTML = "";
-        document.getElementById("std-preview").innerHTML = "";
+        const resNode = document.getElementById("std-result");
+        const dlNode = document.getElementById("std-download-wrap");
+        const prevNode = document.getElementById("std-preview");
+        if (resNode) resNode.innerHTML = "";
+        if (dlNode) dlNode.innerHTML = "";
+        if (prevNode) prevNode.innerHTML = "";
         stdColSelect.innerHTML = "";
         const file = stdFileInput.files && stdFileInput.files[0];
         if (!file) {
           stdStatus.textContent = "";
           stdGoBtn.disabled = true;
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "Upload a file to populate columns…";
+          stdColSelect.appendChild(opt);
           return;
         }
         stdCurrentFile = file;
@@ -1256,16 +1276,8 @@
       }
 
       function hashStandardFull() {
-        if (!stdCurrentFile) {
-          stdStatus.className = "status error";
-          stdStatus.textContent = "Upload a file first.";
-          return;
-        }
-        if (!stdSampleData || !stdSampleData.headers.length) {
-          stdStatus.className = "status error";
-          stdStatus.textContent = "Sample not ready yet.";
-          return;
-        }
+        if (!stdCurrentFile || !stdSampleData || !stdSampleData.headers) return;
+        if (!stdColSelect || !stdStatus) return;
         const colName = stdColSelect.value;
         if (!colName) {
           stdStatus.className = "status error";
@@ -1279,17 +1291,19 @@
           return;
         }
         const sampleValues = stdSampleData.rows.map(r => r[idxSample]);
-        const normalizeFlag = stdNormCheckbox.checked;
+        const normalizeFlag = stdNormCheckbox && stdNormCheckbox.checked;
         let shouldNormalize = false;
         if (normalizeFlag) {
           shouldNormalize = looksLikePhone(sampleValues, colName);
         }
-        const algo = stdHashSelect.value;
-        const upperInput = stdUpperInputCheckbox.checked;
-        const upperHash = stdUpperHashCheckbox.checked;
+        const algo = stdHashSelect ? stdHashSelect.value : "md5";
+        const upperInput = stdUpperInputCheckbox && stdUpperInputCheckbox.checked;
+        const upperHash = stdUpperHashCheckbox && stdUpperHashCheckbox.checked;
+
         stdStatus.className = "status info";
         stdStatus.textContent = "Hashing entire file, this may take a while...";
         showLoading("Hashing entire file...");
+
         const name = stdCurrentFile.name.toLowerCase();
         const isCsvLike = name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt");
         const seen = new Set();
@@ -1297,25 +1311,27 @@
         const finalize = () => {
           hideLoading();
           const headersOut = ["hash"];
-          const rows = rowsOut;
-          renderTable("std-result", headersOut, rows, 10);
-          const csv = toCsv(headersOut, rows);
+          renderTable("std-result", headersOut, rowsOut, 10);
+          const csv = toCsv(headersOut, rowsOut);
           stdBlob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
           const wrap = document.getElementById("std-download-wrap");
-          wrap.innerHTML = "";
-          const btn = document.createElement("button");
-          btn.className = "btn";
-          btn.textContent = "Download hashes (CSV)";
-          btn.addEventListener("click", () => {
-            if (!stdBlob) return;
-            const file = stdCurrentFile;
-            const outName = file ? baseName(file.name) + "_hashes.csv" : "hashes.csv";
-            saveAs(stdBlob, outName);
-          });
-          wrap.appendChild(btn);
+          if (wrap) {
+            wrap.innerHTML = "";
+            const btn = document.createElement("button");
+            btn.className = "btn";
+            btn.textContent = "Download hashes (CSV)";
+            btn.type = "button";
+            btn.addEventListener("click", () => {
+              if (!stdBlob) return;
+              const outName = baseName(stdCurrentFile.name) + "_hashes.csv";
+              saveAs(stdBlob, outName);
+            });
+            wrap.appendChild(btn);
+          }
           stdStatus.className = "status success";
-          stdStatus.textContent = "Full file hashed. " + rows.length.toLocaleString() + " unique hashes.";
+          stdStatus.textContent = "Full file hashed. " + rowsOut.length.toLocaleString() + " unique hashes.";
         };
+
         if (isCsvLike) {
           return new Promise((resolve, reject) => {
             Papa.parse(stdCurrentFile, {
@@ -1340,16 +1356,10 @@
                   rowsOut.push([h]);
                 }
               },
-              complete: () => {
-                resolve();
-              },
-              error: err => {
-                reject(err);
-              }
+              complete: () => resolve(),
+              error: err => reject(err)
             });
-          }).then(() => {
-            finalize();
-          }).catch(() => {
+          }).then(finalize).catch(() => {
             hideLoading();
             stdStatus.className = "status error";
             stdStatus.textContent = "Error hashing full file.";
@@ -1387,14 +1397,15 @@
         }
       }
 
-      stdFileInput.addEventListener("change", handleStandardFileChange);
-      stdHashSelect.addEventListener("change", runStandardPreview);
-      stdNormCheckbox.addEventListener("change", runStandardPreview);
-      stdUpperInputCheckbox.addEventListener("change", runStandardPreview);
-      stdUpperHashCheckbox.addEventListener("change", runStandardPreview);
-      stdColSelect.addEventListener("change", runStandardPreview);
-      stdGoBtn.addEventListener("click", hashStandardFull);
+      if (stdFileInput) stdFileInput.addEventListener("change", handleStandardFileChange);
+      if (stdHashSelect) stdHashSelect.addEventListener("change", runStandardPreview);
+      if (stdNormCheckbox) stdNormCheckbox.addEventListener("change", runStandardPreview);
+      if (stdUpperInputCheckbox) stdUpperInputCheckbox.addEventListener("change", runStandardPreview);
+      if (stdUpperHashCheckbox) stdUpperHashCheckbox.addEventListener("change", runStandardPreview);
+      if (stdColSelect) stdColSelect.addEventListener("change", runStandardPreview);
+      if (stdGoBtn) stdGoBtn.addEventListener("click", hashStandardFull);
 
+      // ADVANCED TAB
       const advFilesInput = document.getElementById("adv-files");
       const advStatus = document.getElementById("adv-status");
       const advHashSelect = document.getElementById("adv-hash");
@@ -1414,10 +1425,12 @@
       const advChipsWrap = document.getElementById("adv-chips");
       let renamePreviewTimeout = null;
 
-      advRenameOnCheckbox.addEventListener("change", () => {
-        advRenameBlock.style.display = advRenameOnCheckbox.checked ? "block" : "none";
-        updateAdvPreview();
-      });
+      if (advRenameOnCheckbox && advRenameBlock) {
+        advRenameOnCheckbox.addEventListener("change", () => {
+          advRenameBlock.style.display = advRenameOnCheckbox.checked ? "block" : "none";
+          updateAdvPreview();
+        });
+      }
 
       function getAdvKeepMode() {
         const radios = document.querySelectorAll("input[name='adv-keep']");
@@ -1429,23 +1442,27 @@
 
       function getAdvOptions() {
         const colsToHash = [];
-        for (const opt of advColsSelect.options) {
-          if (opt.selected) colsToHash.push(opt.value);
+        if (advColsSelect) {
+          for (const opt of advColsSelect.options) {
+            if (opt.selected) colsToHash.push(opt.value);
+          }
         }
         return {
-          hashType: advHashSelect.value,
+          hashType: advHashSelect ? advHashSelect.value : "md5",
           colsToHash,
-          suffix: advSuffixInput.value,
-          normalize: advNormCheckbox.checked,
+          suffix: advSuffixInput ? advSuffixInput.value : "_md5",
+          normalize: advNormCheckbox && advNormCheckbox.checked,
           keepMode: getAdvKeepMode(),
-          renames: advRenameOnCheckbox.checked ? parseRenames(advRenamesTextarea.value) : {},
-          upperInput: advUpperInputCheckbox.checked,
-          upperHash: advUpperHashCheckbox.checked
+          renames: advRenameOnCheckbox && advRenameOnCheckbox.checked
+            ? parseRenames(advRenamesTextarea ? advRenamesTextarea.value : "")
+            : {},
+          upperInput: advUpperInputCheckbox && advUpperInputCheckbox.checked,
+          upperHash: advUpperHashCheckbox && advUpperHashCheckbox.checked
         };
       }
 
       function updateAdvChips() {
-        if (!advChipsWrap) return;
+        if (!advChipsWrap || !advColsSelect) return;
         advChipsWrap.innerHTML = "";
         const selected = [];
         for (const opt of advColsSelect.options) {
@@ -1473,7 +1490,7 @@
                 break;
               }
             }
-            advColsSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            advColsSelect.dispatchEvent(new Event("change", {bubbles:true}));
           });
           chip.appendChild(label);
           chip.appendChild(x);
@@ -1482,6 +1499,7 @@
       }
 
       function updateAdvPreview() {
+        if (!advPreviewContainer || !advStatus) return;
         advPreviewContainer.innerHTML = "";
         if (!advFilesData.length) {
           advStatus.className = "status info";
@@ -1515,140 +1533,151 @@
         advStatus.textContent = "Preview updated.";
       }
 
-      advFilesInput.addEventListener("change", async () => {
-        advStatus.className = "status info";
-        advStatus.textContent = "";
-        advFilesData = [];
-        advColsSelect.innerHTML = "";
-        advPreviewContainer.innerHTML = "";
-        advDownloads.innerHTML = "";
-        advOutputs = [];
-        advZipBlob = null;
-        const files = advFilesInput.files;
-        if (!files || !files.length) return;
-        advStatus.textContent = "Reading files...";
-        try {
-          const arr = [];
-          for (let i = 0; i < files.length; i++) {
-            const data = await parseFile(files[i]);
-            if (data && data.headers.length && data.rows.length) arr.push(data);
-          }
-          advFilesData = arr;
-          if (!advFilesData.length) {
-            advStatus.className = "status error";
-            advStatus.textContent = "No valid, non-empty files could be read.";
-            return;
-          }
-          const colSet = new Set();
-          advFilesData.forEach(d => d.headers.forEach(h => colSet.add(h)));
-          const cols = Array.from(colSet);
-          cols.sort((a,b) => a.localeCompare(b));
-          cols.forEach(c => {
-            const opt = document.createElement("option");
-            opt.value = c;
-            opt.textContent = c;
-            advColsSelect.appendChild(opt);
-          });
+      if (advFilesInput) {
+        advFilesInput.addEventListener("change", async () => {
+          if (!advStatus || !advColsSelect || !advPreviewContainer || !advDownloads) return;
           advStatus.className = "status info";
-          advStatus.textContent = "Loaded " + advFilesData.length + " file(s). Preview reflects current options.";
+          advStatus.textContent = "";
+          advFilesData = [];
+          advColsSelect.innerHTML = "";
+          advPreviewContainer.innerHTML = "";
+          advDownloads.innerHTML = "";
+          advOutputs = [];
+          advZipBlob = null;
+          const files = advFilesInput.files;
+          if (!files || !files.length) return;
+          advStatus.textContent = "Reading files...";
+          try {
+            const arr = [];
+            for (let i = 0; i < files.length; i++) {
+              const data = await parseFile(files[i]);
+              if (data && data.headers.length && data.rows.length) arr.push(data);
+            }
+            advFilesData = arr;
+            if (!advFilesData.length) {
+              advStatus.className = "status error";
+              advStatus.textContent = "No valid, non-empty files could be read.";
+              return;
+            }
+            const colSet = new Set();
+            advFilesData.forEach(d => d.headers.forEach(h => colSet.add(h)));
+            const cols = Array.from(colSet);
+            cols.sort((a,b) => a.localeCompare(b));
+            cols.forEach(c => {
+              const opt = document.createElement("option");
+              opt.value = c;
+              opt.textContent = c;
+              advColsSelect.appendChild(opt);
+            });
+            advStatus.className = "status info";
+            advStatus.textContent = "Loaded " + advFilesData.length + " file(s). Preview reflects current options.";
+            updateAdvChips();
+            updateAdvPreview();
+          } catch (err) {
+            advStatus.className = "status error";
+            advStatus.textContent = "Error reading files.";
+          }
+        });
+      }
+
+      if (advColsSelect) {
+        advColsSelect.addEventListener("mousedown", (e) => {
+          const option = e.target;
+          if (option.tagName !== "OPTION") return;
+          e.preventDefault();
+          option.selected = !option.selected;
+          advColsSelect.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+        advColsSelect.addEventListener("change", () => {
           updateAdvChips();
           updateAdvPreview();
-        } catch (err) {
-          advStatus.className = "status error";
-          advStatus.textContent = "Error reading files.";
-        }
-      });
+        });
+      }
 
-      advColsSelect.addEventListener("mousedown", (e) => {
-        const option = e.target;
-        if (option.tagName !== "OPTION") return;
-        e.preventDefault();
-        option.selected = !option.selected;
-        advColsSelect.dispatchEvent(new Event("change", {bubbles:true}));
-      });
+      if (advHashSelect) advHashSelect.addEventListener("change", updateAdvPreview);
+      if (advSuffixInput) advSuffixInput.addEventListener("input", updateAdvPreview);
+      if (advNormCheckbox) advNormCheckbox.addEventListener("change", updateAdvPreview);
+      if (advUpperInputCheckbox) advUpperInputCheckbox.addEventListener("change", updateAdvPreview);
+      if (advUpperHashCheckbox) advUpperHashCheckbox.addEventListener("change", updateAdvPreview);
+      if (advKeepGroup) advKeepGroup.addEventListener("change", updateAdvPreview);
+      if (advRenamesTextarea) {
+        advRenamesTextarea.addEventListener("input", () => {
+          if (!advRenameOnCheckbox || !advRenameOnCheckbox.checked) return;
+          if (renamePreviewTimeout) clearTimeout(renamePreviewTimeout);
+          renamePreviewTimeout = setTimeout(() => {
+            updateAdvPreview();
+          }, 400);
+        });
+      }
+      if (advPreviewBtn) advPreviewBtn.addEventListener("click", updateAdvPreview);
 
-      advHashSelect.addEventListener("change", updateAdvPreview);
-      advColsSelect.addEventListener("change", () => {
-        updateAdvChips();
-        updateAdvPreview();
-      });
-      advSuffixInput.addEventListener("input", updateAdvPreview);
-      advNormCheckbox.addEventListener("change", updateAdvPreview);
-      advUpperInputCheckbox.addEventListener("change", updateAdvPreview);
-      advUpperHashCheckbox.addEventListener("change", updateAdvPreview);
-      advKeepGroup.addEventListener("change", updateAdvPreview);
-      advRenamesTextarea.addEventListener("input", () => {
-        if (!advRenameOnCheckbox.checked) return;
-        if (renamePreviewTimeout) clearTimeout(renamePreviewTimeout);
-        renamePreviewTimeout = setTimeout(() => {
-          updateAdvPreview();
-        }, 400);
-      });
-
-      advPreviewBtn.addEventListener("click", () => {
-        updateAdvPreview();
-      });
-
-      advRunBtn.addEventListener("click", async () => {
-        if (!advFilesData.length) {
-          advStatus.className = "status error";
-          advStatus.textContent = "Upload files first.";
-          return;
-        }
-        const opts = getAdvOptions();
-        advOutputs = [];
-        advZipBlob = null;
-        advDownloads.innerHTML = "";
-        showLoading("Hashing files...");
-        try {
-          const zip = new JSZip();
-          let valid = 0;
-          for (const data of advFilesData) {
-            const transformed = transformAdvancedFile(data, opts, true);
-            if (!transformed || !transformed.headers.length || !transformed.rows.length) continue;
-            const csv = toCsv(transformed.headers, transformed.rows);
-            const outName = baseName(data.name) + "_hashed.csv";
-            zip.file(outName, csv);
-            const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-            advOutputs.push({name:outName, blob});
-            valid += 1;
-          }
-          if (!advOutputs.length) {
-            advStatus.className = "status error";
-            advStatus.textContent = "No outputs produced. Check column names and options.";
-            hideLoading();
+      if (advRunBtn) {
+        advRunBtn.addEventListener("click", async () => {
+          if (!advFilesData.length || !advStatus || !advDownloads) {
+            if (advStatus) {
+              advStatus.className = "status error";
+              advStatus.textContent = "Upload files first.";
+            }
             return;
           }
-          const zipBlob = await zip.generateAsync({type:"blob"});
-          advZipBlob = zipBlob;
+          const opts = getAdvOptions();
+          advOutputs = [];
+          advZipBlob = null;
           advDownloads.innerHTML = "";
-          advOutputs.forEach(o => {
-            const btn = document.createElement("button");
-            btn.className = "btn secondary btn-block";
-            btn.textContent = "Download " + o.name;
-            btn.addEventListener("click", () => {
-              saveAs(o.blob, o.name);
+          showLoading("Hashing files...");
+          try {
+            const zip = new JSZip();
+            let valid = 0;
+            for (const data of advFilesData) {
+              const transformed = transformAdvancedFile(data, opts, true);
+              if (!transformed || !transformed.headers.length || !transformed.rows.length) continue;
+              const csv = toCsv(transformed.headers, transformed.rows);
+              const outName = baseName(data.name) + "_hashed.csv";
+              zip.file(outName, csv);
+              const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+              advOutputs.push({name:outName, blob});
+              valid += 1;
+            }
+            if (!advOutputs.length) {
+              advStatus.className = "status error";
+              advStatus.textContent = "No outputs produced. Check column names and options.";
+              hideLoading();
+              return;
+            }
+            const zipBlob = await zip.generateAsync({type:"blob"});
+            advZipBlob = zipBlob;
+            advDownloads.innerHTML = "";
+            advOutputs.forEach(o => {
+              const btn = document.createElement("button");
+              btn.className = "btn secondary btn-block";
+              btn.textContent = "Download " + o.name;
+              btn.type = "button";
+              btn.addEventListener("click", () => {
+                saveAs(o.blob, o.name);
+              });
+              advDownloads.appendChild(btn);
             });
-            advDownloads.appendChild(btn);
-          });
-          const zipBtn = document.createElement("button");
-          zipBtn.className = "btn btn-block";
-          zipBtn.textContent = "Download all as ZIP";
-          zipBtn.addEventListener("click", () => {
-            if (!advZipBlob) return;
-            saveAs(advZipBlob, "hashed_outputs.zip");
-          });
-          advDownloads.appendChild(zipBtn);
-          advStatus.className = "status success";
-          advStatus.textContent = "Finished " + valid + " file(s). Ready to download.";
-        } catch (err) {
-          advStatus.className = "status error";
-          advStatus.textContent = "Error during hashing.";
-        } finally {
-          hideLoading();
-        }
-      });
+            const zipBtn = document.createElement("button");
+            zipBtn.className = "btn btn-block";
+            zipBtn.textContent = "Download all as ZIP";
+            zipBtn.type = "button";
+            zipBtn.addEventListener("click", () => {
+              if (!advZipBlob) return;
+              saveAs(advZipBlob, "hashed_outputs.zip");
+            });
+            advDownloads.appendChild(zipBtn);
+            advStatus.className = "status success";
+            advStatus.textContent = "Finished " + valid + " file(s). Ready to download.";
+          } catch (err) {
+            advStatus.className = "status error";
+            advStatus.textContent = "Error during hashing.";
+          } finally {
+            hideLoading();
+          }
+        });
+      }
 
+      // COMBINE TAB
       const combineFilesInput = document.getElementById("combine-files");
       const combineDropCheckbox = document.getElementById("combine-drop");
       const combineSourceCheckbox = document.getElementById("combine-source");
@@ -1658,110 +1687,117 @@
       const combineStatus = document.getElementById("combine-status");
       const combineDownloadWrap = document.getElementById("combine-download-wrap");
 
-      combineFilesInput.addEventListener("change", async () => {
-        combineStatus.className = "status info";
-        combineStatus.textContent = "";
-        combineDownloadWrap.innerHTML = "";
-        combineFilesData = [];
-        const files = combineFilesInput.files;
-        if (!files || !files.length) return;
-        combineStatus.textContent = "Reading files...";
-        try {
-          const arr = [];
-          for (let i = 0; i < files.length; i++) {
-            const data = await parseFile(files[i]);
-            if (data && data.headers.length && data.rows.length) {
-              data._sourceName = files[i].name;
-              arr.push(data);
+      if (combineFilesInput) {
+        combineFilesInput.addEventListener("change", async () => {
+          if (!combineStatus || !combineDownloadWrap) return;
+          combineStatus.className = "status info";
+          combineStatus.textContent = "";
+          combineDownloadWrap.innerHTML = "";
+          combineFilesData = [];
+          const files = combineFilesInput.files;
+          if (!files || !files.length) return;
+          combineStatus.textContent = "Reading files...";
+          try {
+            const arr = [];
+            for (let i = 0; i < files.length; i++) {
+              const data = await parseFile(files[i]);
+              if (data && data.headers.length && data.rows.length) {
+                data._sourceName = files[i].name;
+                arr.push(data);
+              }
             }
+            combineFilesData = arr;
+            if (!combineFilesData.length) {
+              combineStatus.className = "status error";
+              combineStatus.textContent = "No valid, non-empty files to combine.";
+              return;
+            }
+            combineStatus.className = "status info";
+            combineStatus.textContent = "Loaded " + combineFilesData.length + " file(s). Ready to combine.";
+          } catch (err) {
+            combineStatus.className = "status error";
+            combineStatus.textContent = "Error reading files.";
           }
-          combineFilesData = arr;
+        });
+      }
+
+      if (combineGoBtn) {
+        combineGoBtn.addEventListener("click", () => {
+          if (!combineStatus || !combineDownloadWrap) return;
+          combineDownloadWrap.innerHTML = "";
           if (!combineFilesData.length) {
+            combineStatus.className = "status error";
+            combineStatus.textContent = "Upload at least two files.";
+            return;
+          }
+          const addSource = combineSourceCheckbox && combineSourceCheckbox.checked;
+          const dropDupes = combineDropCheckbox && combineDropCheckbox.checked;
+          const fmt = combineFormatSelect ? combineFormatSelect.value : "csv";
+          const nameRaw = combineNameInput && combineNameInput.value && combineNameInput.value.trim()
+            ? combineNameInput.value.trim()
+            : "combined_output.csv";
+          const fileName = nameRaw.toLowerCase().endsWith(".csv") ? nameRaw : nameRaw + ".csv";
+          let frames = [];
+          for (const data of combineFilesData) {
+            const coerced = coerceToSingleHash(data, addSource);
+            if (!coerced || !coerced.headers.length || !coerced.rows.length) continue;
+            let headers = coerced.headers.slice();
+            let rows = coerced.rows.map(r => r.slice());
+            if (addSource) {
+              if (!headers.includes("source_filename")) {
+                headers = ["source_filename"].concat(headers);
+                rows = rows.map(r => [data._sourceName || data.name].concat(r));
+              }
+            }
+            frames.push({headers, rows});
+          }
+          if (!frames.length) {
             combineStatus.className = "status error";
             combineStatus.textContent = "No valid, non-empty files to combine.";
             return;
           }
-          combineStatus.className = "status info";
-          combineStatus.textContent = "Loaded " + combineFilesData.length + " file(s). Ready to combine.";
-        } catch (err) {
-          combineStatus.className = "status error";
-          combineStatus.textContent = "Error reading files.";
-        }
-      });
-
-      combineGoBtn.addEventListener("click", () => {
-        combineDownloadWrap.innerHTML = "";
-        if (!combineFilesData.length) {
-          combineStatus.className = "status error";
-          combineStatus.textContent = "Upload at least two files.";
-          return;
-        }
-        const addSource = combineSourceCheckbox.checked;
-        const dropDupes = combineDropCheckbox.checked;
-        const fmt = combineFormatSelect.value || "csv";
-        const nameRaw = combineNameInput.value && combineNameInput.value.trim()
-          ? combineNameInput.value.trim()
-          : "combined_output.csv";
-        const fileName = nameRaw.toLowerCase().endsWith(".csv") ? nameRaw : nameRaw + ".csv";
-        let frames = [];
-        for (const data of combineFilesData) {
-          const coerced = coerceToSingleHash(data, addSource);
-          if (!coerced || !coerced.headers.length || !coerced.rows.length) continue;
-          let headers = coerced.headers.slice();
-          let rows = coerced.rows.map(r => r.slice());
-          if (addSource) {
-            if (!headers.includes("source_filename")) {
-              headers = ["source_filename"].concat(headers);
-              rows = rows.map(r => [data._sourceName || data.name].concat(r));
-            }
-          }
-          frames.push({headers, rows});
-        }
-        if (!frames.length) {
-          combineStatus.className = "status error";
-          combineStatus.textContent = "No valid, non-empty files to combine.";
-          return;
-        }
-        const baseHeaders = frames[0].headers.slice();
-        let allRows = [];
-        frames.forEach(f => {
-          if (JSON.stringify(f.headers) === JSON.stringify(baseHeaders)) {
-            allRows = allRows.concat(f.rows);
-          } else {
-            const indexMap = {};
-            baseHeaders.forEach((h, idx) => {
-              indexMap[h] = idx;
-            });
-            f.rows.forEach(row => {
-              const newRow = new Array(baseHeaders.length).fill("");
-              f.headers.forEach((h, idx) => {
-                const targetIdx = indexMap[h];
-                if (targetIdx != null) newRow[targetIdx] = row[idx];
+          const baseHeaders = frames[0].headers.slice();
+          let allRows = [];
+          frames.forEach(f => {
+            if (JSON.stringify(f.headers) === JSON.stringify(baseHeaders)) {
+              allRows = allRows.concat(f.rows);
+            } else {
+              const indexMap = {};
+              baseHeaders.forEach((h, idx) => {
+                indexMap[h] = idx;
               });
-              allRows.push(newRow);
+              f.rows.forEach(row => {
+                const newRow = new Array(baseHeaders.length).fill("");
+                f.headers.forEach((h, idx) => {
+                  const targetIdx = indexMap[h];
+                  if (targetIdx != null) newRow[targetIdx] = row[idx];
+                });
+                allRows.push(newRow);
+              });
+            }
+          });
+          if (dropDupes) {
+            allRows = dropDuplicateRows(baseHeaders, allRows);
+          }
+          if (fmt === "csv") {
+            const csv = toCsv(baseHeaders, allRows);
+            const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+            const btn = document.createElement("button");
+            btn.className = "btn";
+            btn.textContent = "Download " + fileName;
+            btn.type = "button";
+            btn.addEventListener("click", () => {
+              saveAs(blob, fileName);
             });
+            combineDownloadWrap.appendChild(btn);
+            combineStatus.className = "status success";
+            combineStatus.textContent = "Combined " + frames.length + " file(s). Output rows: " + allRows.length.toLocaleString() + ".";
+          } else {
+            combineStatus.className = "status error";
+            combineStatus.textContent = "Only CSV output is supported in the browser version.";
           }
         });
-        if (dropDupes) {
-          allRows = dropDuplicateRows(baseHeaders, allRows);
-        }
-        if (fmt === "csv") {
-          const csv = toCsv(baseHeaders, allRows);
-          const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-          const btn = document.createElement("button");
-          btn.className = "btn";
-          btn.textContent = "Download " + fileName;
-          btn.addEventListener("click", () => {
-            saveAs(blob, fileName);
-          });
-          combineDownloadWrap.appendChild(btn);
-          combineStatus.className = "status success";
-          combineStatus.textContent = "Combined " + frames.length + " file(s). Output rows: " + allRows.length.toLocaleString() + ".";
-        } else {
-          combineStatus.className = "status error";
-          combineStatus.textContent = "Only CSV output is supported in the browser version.";
-        }
-      });
+      }
     });
   </script>
 </body>
