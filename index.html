@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8">
   <title>Easy Hasher • True Blue Analytics</title>
-  <link rel="icon" href="/favicon.ico">
-
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.ico">
   <link rel="icon" href="IMG/true_blue_analytics_transparent.png">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
@@ -407,7 +406,14 @@
       margin:.3rem 0 .1rem;
     }
     .multi-select{
-      min-height:110px;
+      min-height:130px;
+      padding:.3rem;
+      border-radius:14px;
+      background:linear-gradient(180deg,#ffffff,#f6f7ff);
+      border:1px solid var(--input-border);
+    }
+    .multi-select option{
+      padding:.15rem .35rem;
     }
     .hint{
       font-size:.78rem;
@@ -467,6 +473,31 @@
       font-weight:600;
       color:var(--ink);
     }
+    .chips-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:.35rem;
+      margin-top:.25rem;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:.25rem;
+      padding:.12rem .55rem;
+      border-radius:999px;
+      background:#e4e9ff;
+      color:var(--ink);
+      font-size:.75rem;
+      font-weight:600;
+    }
+    .chip-remove{
+      cursor:pointer;
+      font-size:.85rem;
+      opacity:.7;
+    }
+    .chip-remove:hover{
+      opacity:1;
+    }
     @media (max-width:720px){
       .hero-main .subtitle{
         max-width:none;
@@ -521,7 +552,6 @@
         <button class="tab-btn" data-tab="combine">Combine</button>
       </div>
 
-      <!-- STANDARD TAB -->
       <div id="tab-standard" class="tab-panel active">
         <div class="card-title-row">
           <h2 style="margin:0;">Standard hashing</h2>
@@ -547,6 +577,14 @@
               <input id="std-norm" type="checkbox" checked>
               <label for="std-norm" style="margin:0; font-weight:500;">Normalize to 10-digit phones (auto-detect)</label>
             </div>
+            <div class="checkbox-row">
+              <input id="std-upper-input" type="checkbox">
+              <label for="std-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="std-upper-hash" type="checkbox">
+              <label for="std-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
+            </div>
           </div>
         </div>
         <div class="row" style="margin-top:.6rem;">
@@ -566,7 +604,6 @@
         <div id="std-download-wrap" style="margin-top:.5rem;"></div>
       </div>
 
-      <!-- ADVANCED TAB -->
       <div id="tab-advanced" class="tab-panel">
         <div class="card-title-row">
           <h2 style="margin:0;">Advanced hashing</h2>
@@ -592,7 +629,8 @@
           <div class="col-3">
             <label for="adv-cols">Columns to hash</label>
             <select id="adv-cols" multiple class="multi-select"></select>
-            <div class="hint">If none selected for a file, its first column is used.</div>
+            <div class="hint">Click to toggle columns (no Ctrl needed). If none selected for a file, its first column is used.</div>
+            <div id="adv-chips" class="chips-row"></div>
           </div>
           <div class="col-3">
             <label for="adv-suffix">Suffix for added hash columns (Add mode)</label>
@@ -600,6 +638,14 @@
             <div class="checkbox-row">
               <input id="adv-norm" type="checkbox" checked>
               <label for="adv-norm" style="margin:0; font-weight:500;">Normalize to 10-digit phones (auto-detect per column)</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="adv-upper-input" type="checkbox">
+              <label for="adv-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="adv-upper-hash" type="checkbox">
+              <label for="adv-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
             </div>
           </div>
         </div>
@@ -646,7 +692,6 @@
         <div id="adv-downloads" class="downloads-list"></div>
       </div>
 
-      <!-- COMBINE TAB -->
       <div id="tab-combine" class="tab-panel">
         <div class="card-title-row">
           <h2 style="margin:0;">Combine files</h2>
@@ -703,7 +748,6 @@
     </div>
   </div>
 
-  <!-- libs -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -714,8 +758,10 @@
     const COMPANY_NAME = "True Blue Analytics";
     const TOOL_NAME = "Easy Hasher";
 
-    let stdData = null;
+    let stdSampleData = null;
+    let stdCurrentFile = null;
     let stdBlob = null;
+    const STD_SAMPLE_ROWS = 200;
 
     let advFilesData = [];
     let advOutputs = [];
@@ -739,7 +785,6 @@
       const b = name.slice(0, idx).trim();
       return b || "file";
     }
-
     function renderTable(containerOrId, headers, rows, maxRows) {
       const container = typeof containerOrId === "string"
         ? document.getElementById(containerOrId)
@@ -771,21 +816,21 @@
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
-      }
+      });
       table.appendChild(tbody);
       wrap.appendChild(table);
       container.appendChild(wrap);
     }
-
-    function hashValue(str, algo) {
+    function hashValue(str, algo, outputUppercase) {
       const s = String(str == null ? "" : str);
-      if (algo === "md5") return CryptoJS.MD5(s).toString();
-      if (algo === "sha1") return CryptoJS.SHA1(s).toString();
-      if (algo === "sha256") return CryptoJS.SHA256(s).toString();
-      if (algo === "sha512") return CryptoJS.SHA512(s).toString();
-      return CryptoJS.MD5(s).toString();
+      let hex;
+      if (algo === "md5") hex = CryptoJS.MD5(s).toString();
+      else if (algo === "sha1") hex = CryptoJS.SHA1(s).toString();
+      else if (algo === "sha256") hex = CryptoJS.SHA256(s).toString();
+      else if (algo === "sha512") hex = CryptoJS.SHA512(s).toString();
+      else hex = CryptoJS.MD5(s).toString();
+      return outputUppercase ? hex.toUpperCase() : hex;
     }
-
     const digitRe = /\D+/g;
     function normalizePhoneValue(x) {
       const s = x == null ? "" : String(x);
@@ -819,26 +864,23 @@
       if (total === 0) return false;
       return count / total >= 0.6;
     }
-    function seriesForHash(values, normalizeEnabled, colName) {
+    function seriesForHash(values, normalizeEnabled, colName, uppercaseInput) {
       const out = [];
       if (!values) return out;
       const shouldNormalize = normalizeEnabled && looksLikePhone(values, colName);
-      if (!shouldNormalize) {
-        for (let i = 0; i < values.length; i++) {
-          const v = values[i];
-          out.push(v == null ? "" : String(v));
-        }
-        return out;
-      }
       for (let i = 0; i < values.length; i++) {
         const v = values[i];
-        const s = v == null ? "" : String(v);
-        const n = normalizePhoneValue(s);
-        out.push(n || s);
+        const raw = v == null ? "" : String(v);
+        let s = raw;
+        if (shouldNormalize) {
+          const n = normalizePhoneValue(raw);
+          s = n || raw;
+        }
+        if (uppercaseInput) s = s.toUpperCase();
+        out.push(s);
       }
       return out;
     }
-
     function parseRenames(text) {
       const map = {};
       if (!text) return map;
@@ -854,7 +896,6 @@
       }
       return map;
     }
-
     function toCsv(headers, rows) {
       const esc = v => {
         const s = v == null ? "" : String(v);
@@ -871,7 +912,6 @@
       }
       return lines.join("\n");
     }
-
     function parseFile(file) {
       return new Promise((resolve, reject) => {
         const name = file.name.toLowerCase();
@@ -950,7 +990,46 @@
         });
       });
     }
-
+    function loadStandardSample(file) {
+      return new Promise((resolve, reject) => {
+        const name = file.name.toLowerCase();
+        const isCsvLike = name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt");
+        const big = file.size > 200 * 1024 * 1024;
+        if (big && isCsvLike) {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: "greedy",
+            dynamicTyping: false,
+            preview: STD_SAMPLE_ROWS,
+            complete: res => {
+              try {
+                if (!res || !res.meta || !res.meta.fields || !res.meta.fields.length) {
+                  resolve(null);
+                  return;
+                }
+                const headers = res.meta.fields;
+                const rows = res.data.map(obj => headers.map(h => obj[h]));
+                resolve({ headers, rows });
+              } catch (err) {
+                reject(err);
+              }
+            },
+            error: err => reject(err)
+          });
+        } else {
+          parseFile(file).then(data => {
+            if (!data || !data.headers.length || !data.rows.length) {
+              resolve(null);
+              return;
+            }
+            resolve({
+              headers: data.headers,
+              rows: data.rows.slice(0, STD_SAMPLE_ROWS)
+            });
+          }).catch(reject);
+        }
+      });
+    }
     function transformAdvancedFile(data, opts, full) {
       if (!data || !data.headers || !data.headers.length || !data.rows) return null;
       let headers = data.headers.slice();
@@ -966,6 +1045,8 @@
       if (!selected.length && headers.length) selected.push(headers[0]);
       const hashAlgo = opts.hashType || "md5";
       const normalize = !!opts.normalize;
+      const upperInput = !!opts.upperInput;
+      const upperHash = !!opts.upperHash;
 
       if (opts.keepMode === "only") {
         const cols = [];
@@ -973,14 +1054,14 @@
           const idx = headers.indexOf(c);
           if (idx === -1) continue;
           const values = rows.map(r => r[idx]);
-          const series = seriesForHash(values, normalize, c);
-          const hashed = series.map(v => hashValue(v, hashAlgo));
-          cols.push({name:c + "_" + hashAlgo, values:hashed});
+          const series = seriesForHash(values, normalize, c, upperInput);
+          const hashed = series.map(v => hashValue(v, hashAlgo, upperHash));
+          cols.push({name: c + "_" + hashAlgo, values: hashed});
         }
         if (!cols.length) return null;
         const outHeaders = cols.map(c => c.name);
         const outRows = rows.map((_, rowIdx) => cols.map(c => c.values[rowIdx]));
-        return {headers:outHeaders, rows:outRows};
+        return {headers: outHeaders, rows: outRows};
       }
 
       if (opts.keepMode === "add") {
@@ -991,8 +1072,8 @@
           const idx = headers.indexOf(c);
           if (idx === -1) continue;
           const values = rows.map(r => r[idx]);
-          const series = seriesForHash(values, normalize, c);
-          const hashed = series.map(v => hashValue(v, hashAlgo));
+          const series = seriesForHash(values, normalize, c, upperInput);
+          const hashed = series.map(v => hashValue(v, hashAlgo, upperHash));
           const newName = c + suffix;
           colValues[newName] = hashed;
           outHeaders.push(newName);
@@ -1004,7 +1085,7 @@
           }
           return r;
         });
-        return {headers:outHeaders, rows:outRows};
+        return {headers: outHeaders, rows: outRows};
       }
 
       if (opts.keepMode === "replace") {
@@ -1014,18 +1095,17 @@
           const idx = headers.indexOf(c);
           if (idx === -1) continue;
           const values = outRows.map(r => r[idx]);
-          const series = seriesForHash(values, normalize, c);
-          const hashed = series.map(v => hashValue(v, hashAlgo));
+          const series = seriesForHash(values, normalize, c, upperInput);
+          const hashed = series.map(v => hashValue(v, hashAlgo, upperHash));
           for (let i = 0; i < outRows.length; i++) {
             outRows[i][idx] = hashed[i];
           }
         }
-        return {headers:outHeaders, rows:outRows};
+        return {headers: outHeaders, rows: outRows};
       }
 
       return null;
     }
-
     function coerceToSingleHash(data, addSource) {
       if (!data || !data.headers || !data.headers.length || !data.rows) return null;
       let headers = data.headers.slice();
@@ -1066,7 +1146,6 @@
       const outRows = filteredRows.map(r => [r[firstIdx]]);
       return {headers:outHeaders, rows:outRows};
     }
-
     function dropDuplicateRows(headers, rows) {
       const seen = new Set();
       const out = [];
@@ -1093,71 +1172,31 @@
         });
       });
 
-      // === STANDARD ===
       const stdFileInput = document.getElementById("std-file");
       const stdHashSelect = document.getElementById("std-hash");
       const stdNormCheckbox = document.getElementById("std-norm");
+      const stdUpperInputCheckbox = document.getElementById("std-upper-input");
+      const stdUpperHashCheckbox = document.getElementById("std-upper-hash");
       const stdColSelect = document.getElementById("std-col");
       const stdGoBtn = document.getElementById("std-go");
       const stdStatus = document.getElementById("std-status");
 
-      stdFileInput.addEventListener("change", async () => {
-        stdStatus.className = "status info";
-        stdStatus.textContent = "Reading file...";
-        stdBlob = null;
-        document.getElementById("std-result").innerHTML = "";
-        document.getElementById("std-download-wrap").innerHTML = "";
-        const file = stdFileInput.files && stdFileInput.files[0];
-        stdData = null;
-        stdGoBtn.disabled = true;
-        stdColSelect.innerHTML = "";
-        document.getElementById("std-preview").innerHTML = "";
-        if (!file) {
-          stdStatus.textContent = "";
-          return;
-        }
-        try {
-          const data = await parseFile(file);
-          if (!data || !data.headers.length || !data.rows.length) {
-            stdStatus.className = "status error";
-            stdStatus.textContent = "Could not read the file or it is empty.";
-            return;
-          }
-          stdData = data;
-          stdColSelect.innerHTML = "";
-          data.headers.forEach(h => {
-            const opt = document.createElement("option");
-            opt.value = h;
-            opt.textContent = h;
-            stdColSelect.appendChild(opt);
-          });
-          stdGoBtn.disabled = false;
-          stdStatus.className = "status info";
-          stdStatus.textContent = `Previewing first 10 rows · shape: ${data.rows.length.toLocaleString()} × ${data.headers.length}`;
-          renderTable("std-preview", data.headers, data.rows, 10);
-        } catch (err) {
-          stdStatus.className = "status error";
-          stdStatus.textContent = "Error reading file.";
-        }
-      });
-
-      stdGoBtn.addEventListener("click", () => {
-        if (!stdData || !stdData.headers.length || !stdData.rows.length) return;
+      function runStandardPreview() {
+        if (!stdSampleData || !stdSampleData.headers.length || !stdSampleData.rows.length) return;
         const colName = stdColSelect.value;
-        if (!colName) {
-          stdStatus.className = "status error";
-          stdStatus.textContent = "Select a column to hash.";
-          return;
-        }
-        const idx = stdData.headers.indexOf(colName);
-        if (idx === -1) {
-          stdStatus.className = "status error";
-          stdStatus.textContent = "Selected column not found.";
-          return;
-        }
-        const values = stdData.rows.map(r => r[idx]);
-        const normalizedSeries = seriesForHash(values, stdNormCheckbox.checked, colName);
-        const hashed = normalizedSeries.map(v => hashValue(v, stdHashSelect.value));
+        if (!colName) return;
+        const idx = stdSampleData.headers.indexOf(colName);
+        if (idx === -1) return;
+        const values = stdSampleData.rows.map(r => r[idx]);
+        const normalizedSeries = seriesForHash(
+          values,
+          stdNormCheckbox.checked,
+          colName,
+          stdUpperInputCheckbox.checked
+        );
+        const hashed = normalizedSeries.map(v =>
+          hashValue(v, stdHashSelect.value, stdUpperHashCheckbox.checked)
+        );
         const unique = [];
         const seen = new Set();
         for (const h of hashed) {
@@ -1167,31 +1206,203 @@
         }
         const rows = unique.map(v => [v]);
         renderTable("std-result", ["hash"], rows, 10);
-        const csv = toCsv(["hash"], rows);
-        stdBlob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-        const wrap = document.getElementById("std-download-wrap");
-        wrap.innerHTML = "";
-        const btn = document.createElement("button");
-        btn.className = "btn";
-        btn.textContent = "Download hashes (CSV)";
-        btn.addEventListener("click", () => {
-          if (!stdBlob) return;
-          const file = stdFileInput.files && stdFileInput.files[0];
-          const name = file ? baseName(file.name) + "_hashes.csv" : "hashes.csv";
-          saveAs(stdBlob, name);
-        });
-        wrap.appendChild(btn);
-        stdStatus.className = "status success";
-        stdStatus.textContent = `Generated ${rows.length.toLocaleString()} unique hashes.`;
-      });
+      }
 
-      // === ADVANCED ===
+      async function handleStandardFileChange() {
+        stdStatus.className = "status info";
+        stdStatus.textContent = "Reading file...";
+        stdBlob = null;
+        stdSampleData = null;
+        stdCurrentFile = null;
+        document.getElementById("std-result").innerHTML = "";
+        document.getElementById("std-download-wrap").innerHTML = "";
+        document.getElementById("std-preview").innerHTML = "";
+        stdColSelect.innerHTML = "";
+        const file = stdFileInput.files && stdFileInput.files[0];
+        if (!file) {
+          stdStatus.textContent = "";
+          stdGoBtn.disabled = true;
+          return;
+        }
+        stdCurrentFile = file;
+        stdGoBtn.disabled = true;
+        try {
+          const sample = await loadStandardSample(file);
+          if (!sample || !sample.headers.length || !sample.rows.length) {
+            stdStatus.className = "status error";
+            stdStatus.textContent = "Could not read the file or it is empty.";
+            return;
+          }
+          stdSampleData = sample;
+          stdColSelect.innerHTML = "";
+          sample.headers.forEach(h => {
+            const opt = document.createElement("option");
+            opt.value = h;
+            opt.textContent = h;
+            stdColSelect.appendChild(opt);
+          });
+          stdGoBtn.disabled = false;
+          if (file.size > 200 * 1024 * 1024) {
+            stdStatus.textContent = "Preview is based on the first " + STD_SAMPLE_ROWS + " rows only. Click Hash now to hash the full file (streamed).";
+          } else {
+            stdStatus.textContent = "Previewing first 10 rows · sample size: " + sample.rows.length.toLocaleString() + " × " + sample.headers.length;
+          }
+          renderTable("std-preview", sample.headers, sample.rows, 10);
+          runStandardPreview();
+        } catch (err) {
+          stdStatus.className = "status error";
+          stdStatus.textContent = "Error reading file.";
+        }
+      }
+
+      function hashStandardFull() {
+        if (!stdCurrentFile) {
+          stdStatus.className = "status error";
+          stdStatus.textContent = "Upload a file first.";
+          return;
+        }
+        if (!stdSampleData || !stdSampleData.headers.length) {
+          stdStatus.className = "status error";
+          stdStatus.textContent = "Sample not ready yet.";
+          return;
+        }
+        const colName = stdColSelect.value;
+        if (!colName) {
+          stdStatus.className = "status error";
+          stdStatus.textContent = "Select a column to hash.";
+          return;
+        }
+        const idxSample = stdSampleData.headers.indexOf(colName);
+        if (idxSample === -1) {
+          stdStatus.className = "status error";
+          stdStatus.textContent = "Selected column not found in sample.";
+          return;
+        }
+        const sampleValues = stdSampleData.rows.map(r => r[idxSample]);
+        const normalizeFlag = stdNormCheckbox.checked;
+        let shouldNormalize = false;
+        if (normalizeFlag) {
+          shouldNormalize = looksLikePhone(sampleValues, colName);
+        }
+        const algo = stdHashSelect.value;
+        const upperInput = stdUpperInputCheckbox.checked;
+        const upperHash = stdUpperHashCheckbox.checked;
+        stdStatus.className = "status info";
+        stdStatus.textContent = "Hashing entire file, this may take a while...";
+        showLoading("Hashing entire file...");
+        const name = stdCurrentFile.name.toLowerCase();
+        const isCsvLike = name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt");
+        const seen = new Set();
+        const rowsOut = [];
+        const finalize = () => {
+          hideLoading();
+          const headersOut = ["hash"];
+          const rows = rowsOut;
+          renderTable("std-result", headersOut, rows, 10);
+          const csv = toCsv(headersOut, rows);
+          stdBlob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const wrap = document.getElementById("std-download-wrap");
+          wrap.innerHTML = "";
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.textContent = "Download hashes (CSV)";
+          btn.addEventListener("click", () => {
+            if (!stdBlob) return;
+            const file = stdCurrentFile;
+            const outName = file ? baseName(file.name) + "_hashes.csv" : "hashes.csv";
+            saveAs(stdBlob, outName);
+          });
+          wrap.appendChild(btn);
+          stdStatus.className = "status success";
+          stdStatus.textContent = "Full file hashed. " + rows.length.toLocaleString() + " unique hashes.";
+        };
+        if (isCsvLike) {
+          return new Promise((resolve, reject) => {
+            Papa.parse(stdCurrentFile, {
+              header: true,
+              skipEmptyLines: "greedy",
+              dynamicTyping: false,
+              chunk: results => {
+                const rows = results.data || [];
+                for (const obj of rows) {
+                  if (!obj) continue;
+                  let v = obj[colName];
+                  if (v == null) v = "";
+                  v = String(v);
+                  if (shouldNormalize) {
+                    const n = normalizePhoneValue(v);
+                    v = n || v;
+                  }
+                  if (upperInput) v = v.toUpperCase();
+                  const h = hashValue(v, algo, upperHash);
+                  if (seen.has(h)) continue;
+                  seen.add(h);
+                  rowsOut.push([h]);
+                }
+              },
+              complete: () => {
+                resolve();
+              },
+              error: err => {
+                reject(err);
+              }
+            });
+          }).then(() => {
+            finalize();
+          }).catch(() => {
+            hideLoading();
+            stdStatus.className = "status error";
+            stdStatus.textContent = "Error hashing full file.";
+          });
+        } else {
+          return parseFile(stdCurrentFile).then(data => {
+            if (!data || !data.headers.length || !data.rows.length) {
+              throw new Error("No data");
+            }
+            const headersFull = data.headers;
+            const idxFull = headersFull.indexOf(colName);
+            if (idxFull === -1) {
+              throw new Error("Column not found");
+            }
+            for (const row of data.rows) {
+              let v = row[idxFull];
+              if (v == null) v = "";
+              v = String(v);
+              if (shouldNormalize) {
+                const n = normalizePhoneValue(v);
+                v = n || v;
+              }
+              if (upperInput) v = v.toUpperCase();
+              const h = hashValue(v, algo, upperHash);
+              if (seen.has(h)) continue;
+              seen.add(h);
+              rowsOut.push([h]);
+            }
+            finalize();
+          }).catch(() => {
+            hideLoading();
+            stdStatus.className = "status error";
+            stdStatus.textContent = "Error hashing full file.";
+          });
+        }
+      }
+
+      stdFileInput.addEventListener("change", handleStandardFileChange);
+      stdHashSelect.addEventListener("change", runStandardPreview);
+      stdNormCheckbox.addEventListener("change", runStandardPreview);
+      stdUpperInputCheckbox.addEventListener("change", runStandardPreview);
+      stdUpperHashCheckbox.addEventListener("change", runStandardPreview);
+      stdColSelect.addEventListener("change", runStandardPreview);
+      stdGoBtn.addEventListener("click", hashStandardFull);
+
       const advFilesInput = document.getElementById("adv-files");
       const advStatus = document.getElementById("adv-status");
       const advHashSelect = document.getElementById("adv-hash");
       const advColsSelect = document.getElementById("adv-cols");
       const advSuffixInput = document.getElementById("adv-suffix");
       const advNormCheckbox = document.getElementById("adv-norm");
+      const advUpperInputCheckbox = document.getElementById("adv-upper-input");
+      const advUpperHashCheckbox = document.getElementById("adv-upper-hash");
       const advRenameOnCheckbox = document.getElementById("adv-rename-on");
       const advRenameBlock = document.getElementById("adv-rename-block");
       const advRenamesTextarea = document.getElementById("adv-renames");
@@ -1200,7 +1411,7 @@
       const advPreviewContainer = document.getElementById("adv-preview");
       const advDownloads = document.getElementById("adv-downloads");
       const advKeepGroup = document.getElementById("adv-keep-group");
-
+      const advChipsWrap = document.getElementById("adv-chips");
       let renamePreviewTimeout = null;
 
       advRenameOnCheckbox.addEventListener("change", () => {
@@ -1227,8 +1438,47 @@
           suffix: advSuffixInput.value,
           normalize: advNormCheckbox.checked,
           keepMode: getAdvKeepMode(),
-          renames: advRenameOnCheckbox.checked ? parseRenames(advRenamesTextarea.value) : {}
+          renames: advRenameOnCheckbox.checked ? parseRenames(advRenamesTextarea.value) : {},
+          upperInput: advUpperInputCheckbox.checked,
+          upperHash: advUpperHashCheckbox.checked
         };
+      }
+
+      function updateAdvChips() {
+        if (!advChipsWrap) return;
+        advChipsWrap.innerHTML = "";
+        const selected = [];
+        for (const opt of advColsSelect.options) {
+          if (opt.selected) selected.push(opt.value);
+        }
+        if (!selected.length) {
+          const span = document.createElement("span");
+          span.className = "hint";
+          span.textContent = "No columns selected yet. First column will be used per file.";
+          advChipsWrap.appendChild(span);
+          return;
+        }
+        selected.forEach(name => {
+          const chip = document.createElement("div");
+          chip.className = "chip";
+          const label = document.createElement("span");
+          label.textContent = name;
+          const x = document.createElement("span");
+          x.className = "chip-remove";
+          x.textContent = "×";
+          x.addEventListener("click", () => {
+            for (const opt of advColsSelect.options) {
+              if (opt.value === name) {
+                opt.selected = false;
+                break;
+              }
+            }
+            advColsSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          chip.appendChild(label);
+          chip.appendChild(x);
+          advChipsWrap.appendChild(chip);
+        });
       }
 
       function updateAdvPreview() {
@@ -1254,7 +1504,7 @@
           h.textContent = data.name;
           const shape = document.createElement("span");
           shape.className = "pill";
-          shape.textContent = `preview shape: ${data.rows.length.toLocaleString()} × ${transformed.headers.length}`;
+          shape.textContent = "preview shape: " + data.rows.length.toLocaleString() + " × " + transformed.headers.length;
           titleRow.appendChild(h);
           titleRow.appendChild(shape);
           card.appendChild(titleRow);
@@ -1300,7 +1550,8 @@
             advColsSelect.appendChild(opt);
           });
           advStatus.className = "status info";
-          advStatus.textContent = `Loaded ${advFilesData.length} file(s). Preview reflects current options.`;
+          advStatus.textContent = "Loaded " + advFilesData.length + " file(s). Preview reflects current options.";
+          updateAdvChips();
           updateAdvPreview();
         } catch (err) {
           advStatus.className = "status error";
@@ -1308,10 +1559,23 @@
         }
       });
 
+      advColsSelect.addEventListener("mousedown", (e) => {
+        const option = e.target;
+        if (option.tagName !== "OPTION") return;
+        e.preventDefault();
+        option.selected = !option.selected;
+        advColsSelect.dispatchEvent(new Event("change", {bubbles:true}));
+      });
+
       advHashSelect.addEventListener("change", updateAdvPreview);
-      advColsSelect.addEventListener("change", updateAdvPreview);
+      advColsSelect.addEventListener("change", () => {
+        updateAdvChips();
+        updateAdvPreview();
+      });
       advSuffixInput.addEventListener("input", updateAdvPreview);
       advNormCheckbox.addEventListener("change", updateAdvPreview);
+      advUpperInputCheckbox.addEventListener("change", updateAdvPreview);
+      advUpperHashCheckbox.addEventListener("change", updateAdvPreview);
       advKeepGroup.addEventListener("change", updateAdvPreview);
       advRenamesTextarea.addEventListener("input", () => {
         if (!advRenameOnCheckbox.checked) return;
@@ -1376,7 +1640,7 @@
           });
           advDownloads.appendChild(zipBtn);
           advStatus.className = "status success";
-          advStatus.textContent = `Finished ${valid} file(s). Ready to download.`;
+          advStatus.textContent = "Finished " + valid + " file(s). Ready to download.";
         } catch (err) {
           advStatus.className = "status error";
           advStatus.textContent = "Error during hashing.";
@@ -1385,7 +1649,6 @@
         }
       });
 
-      // === COMBINE ===
       const combineFilesInput = document.getElementById("combine-files");
       const combineDropCheckbox = document.getElementById("combine-drop");
       const combineSourceCheckbox = document.getElementById("combine-source");
@@ -1419,7 +1682,7 @@
             return;
           }
           combineStatus.className = "status info";
-          combineStatus.textContent = `Loaded ${combineFilesData.length} file(s). Ready to combine.`;
+          combineStatus.textContent = "Loaded " + combineFilesData.length + " file(s). Ready to combine.";
         } catch (err) {
           combineStatus.className = "status error";
           combineStatus.textContent = "Error reading files.";
@@ -1440,7 +1703,6 @@
           ? combineNameInput.value.trim()
           : "combined_output.csv";
         const fileName = nameRaw.toLowerCase().endsWith(".csv") ? nameRaw : nameRaw + ".csv";
-
         let frames = [];
         for (const data of combineFilesData) {
           const coerced = coerceToSingleHash(data, addSource);
@@ -1494,7 +1756,7 @@
           });
           combineDownloadWrap.appendChild(btn);
           combineStatus.className = "status success";
-          combineStatus.textContent = `Combined ${frames.length} file(s). Output rows: ${allRows.length.toLocaleString()}.`;
+          combineStatus.textContent = "Combined " + frames.length + " file(s). Output rows: " + allRows.length.toLocaleString() + ".";
         } else {
           combineStatus.className = "status error";
           combineStatus.textContent = "Only CSV output is supported in the browser version.";
@@ -1504,3 +1766,4 @@
   </script>
 </body>
 </html>
+
