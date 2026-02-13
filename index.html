@@ -386,7 +386,7 @@
       border-top:1px solid var(--line);
       margin-top:1.5rem;
       width:100%;
-      flex-shrink:0; /* keep the footer from shrinking up */
+      flex-shrink:0;
     }
     .footerwrap{
       max-width:1200px;
@@ -560,9 +560,8 @@
       <div class="tab-buttons">
         <button type="button" class="tab-btn active" data-tab="standard">Standard</button>
         <button type="button" class="tab-btn" data-tab="advanced">Advanced</button>
+        <button type="button" class="tab-btn" data-tab="swap">Swap</button>
         <button type="button" class="tab-btn" data-tab="combine">Combine</button>
-        <button type="button" class="tab-btn" data-tab="Swap">Swap</button>
-
       </div>
 
       <!-- STANDARD TAB -->
@@ -596,7 +595,6 @@
               <label for="std-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
             </div>
             <div class="checkbox-row">
-              <!-- CHANGED: removed checked -->
               <input id="std-upper-hash" type="checkbox">
               <label for="std-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
             </div>
@@ -620,8 +618,7 @@
         <div id="std-result"></div>
         <div id="std-download-wrap" style="margin-top:.5rem;"></div>
       </div>
-      <!-- SWAP TAB -->
-      
+
       <!-- ADVANCED TAB -->
       <div id="tab-advanced" class="tab-panel">
         <div class="card-title-row">
@@ -665,7 +662,6 @@
               <label for="adv-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
             </div>
             <div class="checkbox-row">
-              <!-- CHANGED: removed checked -->
               <input id="adv-upper-hash" type="checkbox">
               <label for="adv-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
             </div>
@@ -712,6 +708,77 @@
         <div class="section-divider"></div>
         <h3 style="margin:.4rem 0 .25rem 0; font-size:.98rem;">Downloads</h3>
         <div id="adv-downloads" class="downloads-list"></div>
+      </div>
+
+      <!-- SWAP TAB -->
+      <div id="tab-swap" class="tab-panel">
+        <div class="card-title-row">
+          <h2 style="margin:0;">Swap / Difference</h2>
+          <span class="pill">Compare File A vs File B</span>
+        </div>
+        <div class="gradline"></div>
+        <p style="font-size:.88rem; margin:.1rem 0 .6rem 0;">
+          Upload two files, choose a key column in each, and export the rows that exist in one file but not the other.
+        </p>
+
+        <div class="row">
+          <div class="col-2">
+            <label for="swap-file-a">File A</label>
+            <input id="swap-file-a" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsb">
+            <div class="hint">Used as the default source for “A minus B”.</div>
+          </div>
+          <div class="col-2">
+            <label for="swap-file-b">File B</label>
+            <input id="swap-file-b" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsb">
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:.7rem;">
+          <div class="col-2">
+            <label for="swap-col-a">Key column in File A</label>
+            <select id="swap-col-a">
+              <option value="">Upload File A to populate columns…</option>
+            </select>
+          </div>
+          <div class="col-2">
+            <label for="swap-col-b">Key column in File B</label>
+            <select id="swap-col-b">
+              <option value="">Upload File B to populate columns…</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="tag-label" style="margin-top:.7rem;">Direction</div>
+        <div class="radio-group" id="swap-dir-group">
+          <label class="radio-item">
+            <input type="radio" name="swap-dir" value="a-b" checked>
+            <span>Rows in <strong>File A</strong> whose key is <strong>not</strong> in File B (A \\ B).</span>
+          </label>
+          <label class="radio-item">
+            <input type="radio" name="swap-dir" value="b-a">
+            <span>Rows in <strong>File B</strong> whose key is <strong>not</strong> in File A (B \\ A).</span>
+          </label>
+        </div>
+
+        <div class="checkbox-row">
+          <input id="swap-drop" type="checkbox" checked>
+          <label for="swap-drop" style="margin:0; font-weight:500;">Drop duplicate rows in the result</label>
+        </div>
+        <div class="hint">Key comparison is case-insensitive (values are trimmed and uppercased).</div>
+
+        <div class="row" style="margin-top:.7rem;">
+          <div class="col-2">
+            <button id="swap-go" class="btn btn-block" type="button">Run difference</button>
+          </div>
+        </div>
+
+        <div id="swap-status" class="status info"></div>
+        <h3 style="margin:.4rem 0 .25rem 0; font-size:.98rem;">Preview (first 25 difference rows)</h3>
+        <div id="swap-preview"></div>
+        <div id="swap-download-wrap" style="margin-top:.5rem;"></div>
+        <div class="hint" style="margin-top:.25rem;">
+          Note: this tool loads both files fully in your browser; extremely large files may not fit in memory.
+        </div>
       </div>
 
       <!-- COMBINE TAB -->
@@ -792,6 +859,11 @@
     let advZipBlob = null;
 
     let combineFilesData = [];
+
+    // Swap state
+    let swapDataA = null;
+    let swapDataB = null;
+    let swapBlob = null;
 
     function showLoading(message) {
       const overlay = document.getElementById("loading-overlay");
@@ -1690,6 +1762,209 @@
           } finally {
             hideLoading();
           }
+        });
+      }
+
+      // SWAP TAB
+      const swapFileAInput = document.getElementById("swap-file-a");
+      const swapFileBInput = document.getElementById("swap-file-b");
+      const swapColASelect = document.getElementById("swap-col-a");
+      const swapColBSelect = document.getElementById("swap-col-b");
+      const swapDropCheckbox = document.getElementById("swap-drop");
+      const swapGoBtn = document.getElementById("swap-go");
+      const swapStatus = document.getElementById("swap-status");
+      const swapPreviewContainer = document.getElementById("swap-preview");
+      const swapDownloadWrap = document.getElementById("swap-download-wrap");
+
+      function getSwapDirection() {
+        const radios = document.querySelectorAll("input[name='swap-dir']");
+        for (const r of radios) {
+          if (r.checked) return r.value;
+        }
+        return "a-b";
+      }
+
+      async function loadSwapFile(which) {
+        const input = which === "a" ? swapFileAInput : swapFileBInput;
+        const select = which === "a" ? swapColASelect : swapColBSelect;
+        if (!input || !select || !swapStatus) return;
+        const file = input.files && input.files[0];
+        select.innerHTML = "";
+        if (!file) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = which === "a"
+            ? "Upload File A to populate columns…"
+            : "Upload File B to populate columns…";
+          select.appendChild(opt);
+          if (which === "a") swapDataA = null; else swapDataB = null;
+          swapPreviewContainer.innerHTML = "";
+          swapDownloadWrap.innerHTML = "";
+          swapStatus.textContent = "";
+          return;
+        }
+        swapStatus.className = "status info";
+        swapStatus.textContent = "Reading File " + (which === "a" ? "A" : "B") + "...";
+        swapPreviewContainer.innerHTML = "";
+        swapDownloadWrap.innerHTML = "";
+        try {
+          const data = await parseFile(file);
+          if (!data || !data.headers.length || !data.rows.length) {
+            swapStatus.className = "status error";
+            swapStatus.textContent = "Could not read File " + (which === "a" ? "A" : "B") + " or it is empty.";
+            if (which === "a") swapDataA = null; else swapDataB = null;
+            return;
+          }
+          if (which === "a") swapDataA = data; else swapDataB = data;
+          data.headers.forEach(h => {
+            const opt = document.createElement("option");
+            opt.value = h;
+            opt.textContent = h;
+            select.appendChild(opt);
+          });
+          swapStatus.className = "status info";
+          swapStatus.textContent = "Loaded File A and/or File B. Set columns and click Run difference.";
+          updateSwapPreview();
+        } catch (err) {
+          swapStatus.className = "status error";
+          swapStatus.textContent = "Error reading File " + (which === "a" ? "A" : "B") + ".";
+          if (which === "a") swapDataA = null; else swapDataB = null;
+        }
+      }
+
+      function computeSwapDifference(dropDupes, maxRows) {
+        if (!swapDataA || !swapDataB) return null;
+        const dir = getSwapDirection();
+        const colAName = swapColASelect ? swapColASelect.value : "";
+        const colBName = swapColBSelect ? swapColBSelect.value : "";
+        if (!colAName || !colBName) return null;
+
+        let primary, other, primaryKeyName, otherKeyName;
+        if (dir === "b-a") {
+          primary = swapDataB;
+          other = swapDataA;
+          primaryKeyName = colBName;
+          otherKeyName = colAName;
+        } else {
+          primary = swapDataA;
+          other = swapDataB;
+          primaryKeyName = colAName;
+          otherKeyName = colBName;
+        }
+
+        const idxPrimary = primary.headers.indexOf(primaryKeyName);
+        const idxOther = other.headers.indexOf(otherKeyName);
+        if (idxPrimary === -1 || idxOther === -1) return null;
+
+        const otherKeys = new Set();
+        for (const row of other.rows) {
+          let v = row[idxOther];
+          if (v == null) v = "";
+          let key = String(v).trim().toUpperCase();
+          otherKeys.add(key);
+        }
+
+        const outHeaders = primary.headers.slice();
+        const outRows = [];
+        const seenRows = dropDupes ? new Set() : null;
+
+        for (const row of primary.rows) {
+          let v = row[idxPrimary];
+          if (v == null) v = "";
+          let key = String(v).trim().toUpperCase();
+          if (otherKeys.has(key)) continue;
+          if (dropDupes && seenRows) {
+            const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
+            if (seenRows.has(rowKey)) continue;
+            seenRows.add(rowKey);
+          }
+          outRows.push(row.slice());
+          if (maxRows && outRows.length >= maxRows) break;
+        }
+
+        return {headers: outHeaders, rows: outRows};
+      }
+
+      function updateSwapPreview() {
+        if (!swapPreviewContainer || !swapStatus) return;
+        swapPreviewContainer.innerHTML = "";
+        swapDownloadWrap.innerHTML = "";
+        if (!swapDataA || !swapDataB) {
+          swapStatus.className = "status info";
+          swapStatus.textContent = "Upload both File A and File B to preview the difference.";
+          return;
+        }
+        const colAName = swapColASelect ? swapColASelect.value : "";
+        const colBName = swapColBSelect ? swapColBSelect.value : "";
+        if (!colAName || !colBName) {
+          swapStatus.className = "status info";
+          swapStatus.textContent = "Choose key columns for File A and File B.";
+          return;
+        }
+        const dropDupes = swapDropCheckbox && swapDropCheckbox.checked;
+        const diff = computeSwapDifference(dropDupes, 25);
+        if (!diff || !diff.headers.length) {
+          swapStatus.className = "status info";
+          swapStatus.textContent = "No difference rows found for the current selection (preview).";
+          return;
+        }
+        renderTable(swapPreviewContainer, diff.headers, diff.rows, 25);
+        swapStatus.className = "status success";
+        swapStatus.textContent = "Preview shows up to 25 difference rows.";
+      }
+
+      if (swapFileAInput) swapFileAInput.addEventListener("change", () => loadSwapFile("a"));
+      if (swapFileBInput) swapFileBInput.addEventListener("change", () => loadSwapFile("b"));
+      if (swapColASelect) swapColASelect.addEventListener("change", updateSwapPreview);
+      if (swapColBSelect) swapColBSelect.addEventListener("change", updateSwapPreview);
+      const swapDirGroup = document.getElementById("swap-dir-group");
+      if (swapDirGroup) swapDirGroup.addEventListener("change", updateSwapPreview);
+      if (swapDropCheckbox) swapDropCheckbox.addEventListener("change", updateSwapPreview);
+
+      if (swapGoBtn) {
+        swapGoBtn.addEventListener("click", () => {
+          if (!swapStatus || !swapDownloadWrap) return;
+          swapDownloadWrap.innerHTML = "";
+          if (!swapDataA || !swapDataB) {
+            swapStatus.className = "status error";
+            swapStatus.textContent = "Upload both File A and File B.";
+            return;
+          }
+          const colAName = swapColASelect ? swapColASelect.value : "";
+          const colBName = swapColBSelect ? swapColBSelect.value : "";
+          if (!colAName || !colBName) {
+            swapStatus.className = "status error";
+            swapStatus.textContent = "Choose key columns for File A and File B.";
+            return;
+          }
+          const dropDupes = swapDropCheckbox && swapDropCheckbox.checked;
+          swapStatus.className = "status info";
+          swapStatus.textContent = "Computing difference...";
+          const diff = computeSwapDifference(dropDupes, null);
+          if (!diff || !diff.headers.length) {
+            swapStatus.className = "status info";
+            swapStatus.textContent = "No difference rows found.";
+            return;
+          }
+          renderTable(swapPreviewContainer, diff.headers, diff.rows, 25);
+          const csv = toCsv(diff.headers, diff.rows);
+          swapBlob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.type = "button";
+          btn.textContent = "Download difference (CSV)";
+          btn.addEventListener("click", () => {
+            if (!swapBlob) return;
+            const dir = getSwapDirection();
+            const label = dir === "b-a" ? "B_minus_A" : "A_minus_B";
+            const baseA = swapDataA ? baseName(swapDataA.name) : "fileA";
+            const baseB = swapDataB ? baseName(swapDataB.name) : "fileB";
+            const outName = baseA + "_" + baseB + "_" + label + ".csv";
+            saveAs(swapBlob, outName);
+          });
+          swapDownloadWrap.appendChild(btn);
+          swapStatus.className = "status success";
+          swapStatus.textContent = "Difference computed: " + diff.rows.length.toLocaleString() + " row(s).";
         });
       }
 
