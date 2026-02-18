@@ -1815,7 +1815,7 @@
         });
       }
 
-      // SWAP TAB
+           // SWAP TAB
       const swapFileAInput = document.getElementById("swap-file-a");
       const swapFileBInput = document.getElementById("swap-file-b");
       const swapColASelect = document.getElementById("swap-col-a");
@@ -1851,14 +1851,159 @@
         };
       }
 
+      // Detect if a column already looks like a hex hash for the chosen algo
+      function looksPreHashed(values, algo) {
+        if (!values || !values.length) return false;
+        const hexRe = /^[0-9a-fA-F]+$/;
+        const lengthMap = { md5: 32, sha1: 40, sha256: 64, sha512: 128 };
+        const expectedLen = lengthMap[algo] || null;
+
+        let hits = 0;
+        let total = 0;
+        const limit = Math.min(values.length, 400);
+        for (let i = 0; i < limit; i++) {
+          const raw = values[i];
+          if (raw == null) continue;
+          const s = String(raw).trim();
+          if (!s) continue;
+          total++;
+          if (expectedLen && s.length !== expectedLen) continue;
+          if (!hexRe.test(s)) continue;
+          hits++;
+        }
+        if (!total) return false;
+        // if >=80% of non-empty values look like hex hash, treat as pre-hashed
+        return hits / total >= 0.8;
+      }
+
+      function computeSwapDifference(dropDupes, maxRows, useHashCompare, hashOpts) {
+        if (!swapDataA || !swapDataB) return null;
+        const dir = getSwapDirection();
+        const colAName = swapColASelect ? swapColASelect.value : "";
+        const colBName = swapColBSelect ? swapColBSelect.value : "";
+        if (!colAName || !colBName) return null;
+
+        let primary, other, primaryKeyName, otherKeyName;
+        if (dir === "b-a") {
+          primary = swapDataB;
+          other = swapDataA;
+          primaryKeyName = colBName;
+          otherKeyName = colAName;
+        } else {
+          primary = swapDataA;
+          other = swapDataB;
+          primaryKeyName = colAName;
+          otherKeyName = colBName;
+        }
+
+        const idxPrimary = primary.headers.indexOf(primaryKeyName);
+        const idxOther = other.headers.indexOf(otherKeyName);
+        if (idxPrimary === -1 || idxOther === -1) return null;
+
+        const outHeaders = primary.headers.slice();
+        const outRows = [];
+        const seenRows = dropDupes ? new Set() : null;
+
+        if (useHashCompare) {
+          const algo = hashOpts.hashType || "md5";
+          const normalize = !!hashOpts.normalize;
+          const upperInput = !!hashOpts.upperInput;
+          const upperHash = !!hashOpts.upperHash;
+
+          // Build comparison keys for "other"
+          const otherValsRaw = other.rows.map(r => r[idxOther]);
+          const otherIsPreHashed = looksPreHashed(otherValsRaw, algo);
+          let otherKeys;
+          if (otherIsPreHashed) {
+            // treat values as already hashed; just normalize case
+            otherKeys = otherValsRaw.map(v => {
+              let s = v == null ? "" : String(v).trim();
+              if (!s) return "";
+              return upperHash ? s.toUpperCase() : s.toLowerCase();
+            });
+          } else {
+            const otherSeries = seriesForHash(
+              otherValsRaw,
+              normalize,
+              otherKeyName,
+              upperInput
+            );
+            otherKeys = otherSeries.map(v =>
+              hashValue(v, algo, upperHash)
+            );
+          }
+          const otherKeySet = new Set(otherKeys);
+
+          // Build comparison keys for "primary"
+          const primaryValsRaw = primary.rows.map(r => r[idxPrimary]);
+          const primaryIsPreHashed = looksPreHashed(primaryValsRaw, algo);
+          let primaryKeys;
+          if (primaryIsPreHashed) {
+            primaryKeys = primaryValsRaw.map(v => {
+              let s = v == null ? "" : String(v).trim();
+              if (!s) return "";
+              return upperHash ? s.toUpperCase() : s.toLowerCase();
+            });
+          } else {
+            const primarySeries = seriesForHash(
+              primaryValsRaw,
+              normalize,
+              primaryKeyName,
+              upperInput
+            );
+            primaryKeys = primarySeries.map(v =>
+              hashValue(v, algo, upperHash)
+            );
+          }
+
+          for (let i = 0; i < primary.rows.length; i++) {
+            const key = primaryKeys[i] || "";
+            if (otherKeySet.has(key)) continue;
+            const row = primary.rows[i];
+            if (dropDupes && seenRows) {
+              const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
+              if (seenRows.has(rowKey)) continue;
+              seenRows.add(rowKey);
+            }
+            outRows.push(row.slice());
+            if (maxRows && outRows.length >= maxRows) break;
+          }
+        } else {
+          // Case-insensitive raw comparison (no hashing)
+          const otherKeySet = new Set();
+          for (const row of other.rows) {
+            let v = row[idxOther];
+            if (v == null) v = "";
+            let key = String(v).trim().toUpperCase();
+            otherKeySet.add(key);
+          }
+
+          for (const row of primary.rows) {
+            let v = row[idxPrimary];
+            if (v == null) v = "";
+            let key = String(v).trim().toUpperCase();
+            if (otherKeySet.has(key)) continue;
+            if (dropDupes && seenRows) {
+              const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
+              if (seenRows.has(rowKey)) continue;
+              seenRows.add(rowKey);
+            }
+            outRows.push(row.slice());
+            if (maxRows && outRows.length >= maxRows) break;
+          }
+        }
+
+        return {headers: outHeaders, rows: outRows};
+      }
+
       async function loadSwapFile(which) {
         const input = which === "a" ? swapFileAInput : swapFileBInput;
         const select = which === "a" ? swapColASelect : swapColBSelect;
-        const previewId = which === "a" ? "swap-preview-a" : "swap-preview-b";
-        if (!input || !select || !swapStatus) return;
+        const previewEl = which === "a" ? swapPreviewAContainer : swapPreviewBContainer;
+        if (!input || !select || !swapStatus || !previewEl) return;
         const file = input.files && input.files[0];
         select.innerHTML = "";
-        document.getElementById(previewId).innerHTML = "";
+        previewEl.innerHTML = "";
         if (!file) {
           const opt = document.createElement("option");
           opt.value = "";
@@ -1891,7 +2036,7 @@
             opt.textContent = h;
             select.appendChild(opt);
           });
-          renderTable(previewId, data.headers, data.rows, 8);
+          renderTable(previewEl, data.headers, data.rows, 8);
           swapStatus.className = "status info";
           swapStatus.textContent = "Loaded File A and/or File B. Set columns and options, then click Run difference.";
           updateSwapPreview();
@@ -1900,97 +2045,6 @@
           swapStatus.textContent = "Error reading File " + (which === "a" ? "A" : "B") + ".";
           if (which === "a") swapDataA = null; else swapDataB = null;
         }
-      }
-
-      function computeSwapDifference(dropDupes, maxRows, useHashCompare, hashOpts) {
-        if (!swapDataA || !swapDataB) return null;
-        const dir = getSwapDirection();
-        const colAName = swapColASelect ? swapColASelect.value : "";
-        const colBName = swapColBSelect ? swapColBSelect.value : "";
-        if (!colAName || !colBName) return null;
-
-        let primary, other, primaryKeyName, otherKeyName;
-        if (dir === "b-a") {
-          primary = swapDataB;
-          other = swapDataA;
-          primaryKeyName = colBName;
-          otherKeyName = colAName;
-        } else {
-          primary = swapDataA;
-          other = swapDataB;
-          primaryKeyName = colAName;
-          otherKeyName = colBName;
-        }
-
-        const idxPrimary = primary.headers.indexOf(primaryKeyName);
-        const idxOther = other.headers.indexOf(otherKeyName);
-        if (idxPrimary === -1 || idxOther === -1) return null;
-
-        const outHeaders = primary.headers.slice();
-        const outRows = [];
-        const seenRows = dropDupes ? new Set() : null;
-
-        if (useHashCompare) {
-          const otherVals = other.rows.map(r => r[idxOther]);
-          const otherSeries = seriesForHash(
-            otherVals,
-            hashOpts.normalize,
-            otherKeyName,
-            hashOpts.upperInput
-          );
-          const otherHashed = otherSeries.map(v =>
-            hashValue(v, hashOpts.hashType, hashOpts.upperHash)
-          );
-          const otherKeySet = new Set(otherHashed);
-
-          const primaryVals = primary.rows.map(r => r[idxPrimary]);
-          const primarySeries = seriesForHash(
-            primaryVals,
-            hashOpts.normalize,
-            primaryKeyName,
-            hashOpts.upperInput
-          );
-          const primaryHashed = primarySeries.map(v =>
-            hashValue(v, hashOpts.hashType, hashOpts.upperHash)
-          );
-
-          for (let i = 0; i < primary.rows.length; i++) {
-            const key = primaryHashed[i];
-            if (otherKeySet.has(key)) continue;
-            const row = primary.rows[i];
-            if (dropDupes && seenRows) {
-              const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
-              if (seenRows.has(rowKey)) continue;
-              seenRows.add(rowKey);
-            }
-            outRows.push(row.slice());
-            if (maxRows && outRows.length >= maxRows) break;
-          }
-        } else {
-          const otherKeySet = new Set();
-          for (const row of other.rows) {
-            let v = row[idxOther];
-            if (v == null) v = "";
-            let key = String(v).trim().toUpperCase();
-            otherKeySet.add(key);
-          }
-
-          for (const row of primary.rows) {
-            let v = row[idxPrimary];
-            if (v == null) v = "";
-            let key = String(v).trim().toUpperCase();
-            if (otherKeySet.has(key)) continue;
-            if (dropDupes && seenRows) {
-              const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
-              if (seenRows.has(rowKey)) continue;
-              seenRows.add(rowKey);
-            }
-            outRows.push(row.slice());
-            if (maxRows && outRows.length >= maxRows) break;
-          }
-        }
-
-        return {headers: outHeaders, rows: outRows};
       }
 
       function updateSwapPreview() {
@@ -2084,6 +2138,7 @@
           swapStatus.textContent = "Difference computed: " + diff.rows.length.toLocaleString() + " row(s).";
         });
       }
+
 
       // COMBINE TAB
       const combineFilesInput = document.getElementById("combine-files");
