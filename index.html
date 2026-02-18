@@ -31,7 +31,6 @@
       font-family:"Montserrat",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
       letter-spacing:.1px;
     }
-    /* make footer stick to bottom */
     body{
       display:flex;
       flex-direction:column;
@@ -109,7 +108,7 @@
       padding:0 1.25rem 2rem 1.25rem;
       max-width:1200px;
       margin:0 auto;
-      flex:1 0 auto; /* grow to fill, keeps footer at bottom */
+      flex:1 0 auto;
       width:100%;
     }
     .hero{
@@ -765,6 +764,40 @@
         </div>
         <div class="hint">Key comparison is case-insensitive (values are trimmed and uppercased).</div>
 
+        <div class="section-divider"></div>
+        <h3 style="margin:.3rem 0 .1rem 0; font-size:.92rem;">Hash options (optional, apply to primary file)</h3>
+        <div class="row">
+          <div class="col-3">
+            <label for="swap-hash-cols">Columns to hash in result (primary file)</label>
+            <select id="swap-hash-cols" multiple class="multi-select">
+              <!-- populated once primary file is known -->
+            </select>
+            <div class="hint">Hashed columns are appended as <code>column_ALGO</code>. Primary file depends on direction.</div>
+            <div id="swap-hash-chips" class="chips-row"></div>
+          </div>
+          <div class="col-3">
+            <label for="swap-hash-type">Hash type</label>
+            <select id="swap-hash-type">
+              <option value="md5" selected>md5</option>
+              <option value="sha1">sha1</option>
+              <option value="sha256">sha256</option>
+              <option value="sha512">sha512</option>
+            </select>
+            <div class="checkbox-row">
+              <input id="swap-norm" type="checkbox" checked>
+              <label for="swap-norm" style="margin:0; font-weight:500;">Normalize to 10-digit phones (auto-detect per column)</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="swap-upper-input" type="checkbox" checked>
+              <label for="swap-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="swap-upper-hash" type="checkbox">
+              <label for="swap-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
+            </div>
+          </div>
+        </div>
+
         <div class="row" style="margin-top:.7rem;">
           <div class="col-2">
             <button id="swap-go" class="btn btn-block" type="button">Run difference</button>
@@ -772,7 +805,21 @@
         </div>
 
         <div id="swap-status" class="status info"></div>
-        <h3 style="margin:.4rem 0 .25rem 0; font-size:.98rem;">Preview (first 25 difference rows)</h3>
+
+        <h3 style="margin:.6rem 0 .25rem 0; font-size:.98rem;">File previews (first 10 rows each)</h3>
+        <div class="row">
+          <div class="col-2">
+            <h4 style="margin:.2rem 0 .2rem 0; font-size:.9rem;">File A preview</h4>
+            <div id="swap-preview-a"></div>
+          </div>
+          <div class="col-2">
+            <h4 style="margin:.2rem 0 .2rem 0; font-size:.9rem;">File B preview</h4>
+            <div id="swap-preview-b"></div>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+        <h3 style="margin:.4rem 0 .25rem 0; font-size:.98rem;">Difference preview (first 25 rows)</h3>
         <div id="swap-preview"></div>
         <div id="swap-download-wrap" style="margin-top:.5rem;"></div>
         <div class="hint" style="margin-top:.25rem;">
@@ -1256,7 +1303,6 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Tabs
       const tabButtons = document.querySelectorAll(".tab-btn");
       const tabPanels = document.querySelectorAll(".tab-panel");
       tabButtons.forEach(btn => {
@@ -1774,6 +1820,16 @@
       const swapStatus = document.getElementById("swap-status");
       const swapPreviewContainer = document.getElementById("swap-preview");
       const swapDownloadWrap = document.getElementById("swap-download-wrap");
+      const swapDirGroup = document.getElementById("swap-dir-group");
+      const swapPreviewA = document.getElementById("swap-preview-a");
+      const swapPreviewB = document.getElementById("swap-preview-b");
+
+      const swapHashColsSelect = document.getElementById("swap-hash-cols");
+      const swapHashChips = document.getElementById("swap-hash-chips");
+      const swapHashTypeSelect = document.getElementById("swap-hash-type");
+      const swapNormCheckbox = document.getElementById("swap-norm");
+      const swapUpperInputCheckbox = document.getElementById("swap-upper-input");
+      const swapUpperHashCheckbox = document.getElementById("swap-upper-hash");
 
       function getSwapDirection() {
         const radios = document.querySelectorAll("input[name='swap-dir']");
@@ -1781,6 +1837,99 @@
           if (r.checked) return r.value;
         }
         return "a-b";
+      }
+
+      function getSwapHashOptions() {
+        const colsToHash = [];
+        if (swapHashColsSelect) {
+          for (const opt of swapHashColsSelect.options) {
+            if (opt.selected) colsToHash.push(opt.value);
+          }
+        }
+        return {
+          colsToHash,
+          hashType: swapHashTypeSelect ? swapHashTypeSelect.value : "md5",
+          normalize: swapNormCheckbox && swapNormCheckbox.checked,
+          upperInput: swapUpperInputCheckbox && swapUpperInputCheckbox.checked,
+          upperHash: swapUpperHashCheckbox && swapUpperHashCheckbox.checked
+        };
+      }
+
+      function populateSwapHashColsOptions() {
+        if (!swapHashColsSelect || !swapHashChips) return;
+        swapHashColsSelect.innerHTML = "";
+        swapHashChips.innerHTML = "";
+
+        const dir = getSwapDirection();
+        const primary = dir === "b-a" ? swapDataB : swapDataA;
+        if (!primary || !primary.headers || !primary.headers.length) {
+          const span = document.createElement("span");
+          span.className = "hint";
+          span.textContent = "Load primary file to select columns to hash.";
+          swapHashChips.appendChild(span);
+          return;
+        }
+
+        const prevSelected = new Set();
+        for (const opt of swapHashColsSelect.options || []) {
+          if (opt.selected) prevSelected.add(opt.value);
+        }
+
+        primary.headers.forEach(h => {
+          const opt = document.createElement("option");
+          opt.value = h;
+          opt.textContent = h;
+          if (prevSelected.has(h)) opt.selected = true;
+          swapHashColsSelect.appendChild(opt);
+        });
+
+        updateSwapHashChips();
+      }
+
+      function updateSwapHashChips() {
+        if (!swapHashColsSelect || !swapHashChips) return;
+        swapHashChips.innerHTML = "";
+        const selected = [];
+        for (const opt of swapHashColsSelect.options) {
+          if (opt.selected) selected.push(opt.value);
+        }
+        if (!selected.length) {
+          const span = document.createElement("span");
+          span.className = "hint";
+          span.textContent = "No columns selected. Difference result will not add hashed columns.";
+          swapHashChips.appendChild(span);
+          return;
+        }
+        selected.forEach(name => {
+          const chip = document.createElement("div");
+          chip.className = "chip";
+          const label = document.createElement("span");
+          label.textContent = name;
+          const x = document.createElement("span");
+          x.className = "chip-remove";
+          x.textContent = "×";
+          x.addEventListener("click", () => {
+            for (const opt of swapHashColsSelect.options) {
+              if (opt.value === name) {
+                opt.selected = false;
+                break;
+              }
+            }
+            swapHashColsSelect.dispatchEvent(new Event("change", {bubbles:true}));
+          });
+          chip.appendChild(label);
+          chip.appendChild(x);
+          swapHashChips.appendChild(chip);
+        });
+      }
+
+      function renderSwapFilePreview(which) {
+        const data = which === "a" ? swapDataA : swapDataB;
+        const container = which === "a" ? swapPreviewA : swapPreviewB;
+        if (!container) return;
+        container.innerHTML = "";
+        if (!data || !data.headers || !data.rows || !data.rows.length) return;
+        renderTable(container, data.headers, data.rows, 10);
       }
 
       async function loadSwapFile(which) {
@@ -1797,9 +1946,12 @@
             : "Upload File B to populate columns…";
           select.appendChild(opt);
           if (which === "a") swapDataA = null; else swapDataB = null;
+          renderSwapFilePreview("a");
+          renderSwapFilePreview("b");
           swapPreviewContainer.innerHTML = "";
           swapDownloadWrap.innerHTML = "";
           swapStatus.textContent = "";
+          populateSwapHashColsOptions();
           return;
         }
         swapStatus.className = "status info";
@@ -1812,6 +1964,9 @@
             swapStatus.className = "status error";
             swapStatus.textContent = "Could not read File " + (which === "a" ? "A" : "B") + " or it is empty.";
             if (which === "a") swapDataA = null; else swapDataB = null;
+            renderSwapFilePreview("a");
+            renderSwapFilePreview("b");
+            populateSwapHashColsOptions();
             return;
           }
           if (which === "a") swapDataA = data; else swapDataB = data;
@@ -1823,15 +1978,21 @@
           });
           swapStatus.className = "status info";
           swapStatus.textContent = "Loaded File A and/or File B. Set columns and click Run difference.";
+          renderSwapFilePreview("a");
+          renderSwapFilePreview("b");
+          populateSwapHashColsOptions();
           updateSwapPreview();
         } catch (err) {
           swapStatus.className = "status error";
           swapStatus.textContent = "Error reading File " + (which === "a" ? "A" : "B") + ".";
           if (which === "a") swapDataA = null; else swapDataB = null;
+          renderSwapFilePreview("a");
+          renderSwapFilePreview("b");
+          populateSwapHashColsOptions();
         }
       }
 
-      function computeSwapDifference(dropDupes, maxRows) {
+      function computeSwapDifference(dropDupes, maxRows, hashCfg) {
         if (!swapDataA || !swapDataB) return null;
         const dir = getSwapDirection();
         const colAName = swapColASelect ? swapColASelect.value : "";
@@ -1863,8 +2024,8 @@
           otherKeys.add(key);
         }
 
-        const outHeaders = primary.headers.slice();
-        const outRows = [];
+        let outHeaders = primary.headers.slice();
+        let outRows = [];
         const seenRows = dropDupes ? new Set() : null;
 
         for (const row of primary.rows) {
@@ -1880,6 +2041,38 @@
           outRows.push(row.slice());
           if (maxRows && outRows.length >= maxRows) break;
         }
+
+        if (!hashCfg || !hashCfg.colsToHash || !hashCfg.colsToHash.length) {
+          return {headers: outHeaders, rows: outRows};
+        }
+
+        const colsToHash = hashCfg.colsToHash.filter(c => outHeaders.includes(c));
+        if (!colsToHash.length) {
+          return {headers: outHeaders, rows: outRows};
+        }
+
+        const algo = hashCfg.hashType || "md5";
+        const normalize = !!hashCfg.normalize;
+        const upperInput = !!hashCfg.upperInput;
+        const upperHash = !!hashCfg.upperHash;
+
+        const additionalCols = [];
+        colsToHash.forEach(col => {
+          const idx = outHeaders.indexOf(col);
+          if (idx === -1) return;
+          const values = outRows.map(r => r[idx]);
+          const series = seriesForHash(values, normalize, col, upperInput);
+          const hashed = series.map(v => hashValue(v, algo, upperHash));
+          const newName = col + "_" + algo;
+          additionalCols.push({name:newName, values:hashed});
+        });
+
+        additionalCols.forEach(col => outHeaders.push(col.name));
+        outRows = outRows.map((row, i) => {
+          const r = row.slice();
+          additionalCols.forEach(col => r.push(col.values[i]));
+          return r;
+        });
 
         return {headers: outHeaders, rows: outRows};
       }
@@ -1901,7 +2094,8 @@
           return;
         }
         const dropDupes = swapDropCheckbox && swapDropCheckbox.checked;
-        const diff = computeSwapDifference(dropDupes, 25);
+        const hashCfg = getSwapHashOptions();
+        const diff = computeSwapDifference(dropDupes, 25, hashCfg);
         if (!diff || !diff.headers.length) {
           swapStatus.className = "status info";
           swapStatus.textContent = "No difference rows found for the current selection (preview).";
@@ -1916,9 +2110,29 @@
       if (swapFileBInput) swapFileBInput.addEventListener("change", () => loadSwapFile("b"));
       if (swapColASelect) swapColASelect.addEventListener("change", updateSwapPreview);
       if (swapColBSelect) swapColBSelect.addEventListener("change", updateSwapPreview);
-      const swapDirGroup = document.getElementById("swap-dir-group");
-      if (swapDirGroup) swapDirGroup.addEventListener("change", updateSwapPreview);
+      if (swapDirGroup) swapDirGroup.addEventListener("change", () => {
+        populateSwapHashColsOptions();
+        updateSwapPreview();
+      });
       if (swapDropCheckbox) swapDropCheckbox.addEventListener("change", updateSwapPreview);
+
+      if (swapHashColsSelect) {
+        swapHashColsSelect.addEventListener("mousedown", (e) => {
+          const option = e.target;
+          if (option.tagName !== "OPTION") return;
+          e.preventDefault();
+          option.selected = !option.selected;
+          swapHashColsSelect.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+        swapHashColsSelect.addEventListener("change", () => {
+          updateSwapHashChips();
+          updateSwapPreview();
+        });
+      }
+      if (swapHashTypeSelect) swapHashTypeSelect.addEventListener("change", updateSwapPreview);
+      if (swapNormCheckbox) swapNormCheckbox.addEventListener("change", updateSwapPreview);
+      if (swapUpperInputCheckbox) swapUpperInputCheckbox.addEventListener("change", updateSwapPreview);
+      if (swapUpperHashCheckbox) swapUpperHashCheckbox.addEventListener("change", updateSwapPreview);
 
       if (swapGoBtn) {
         swapGoBtn.addEventListener("click", () => {
@@ -1937,9 +2151,10 @@
             return;
           }
           const dropDupes = swapDropCheckbox && swapDropCheckbox.checked;
+          const hashCfg = getSwapHashOptions();
           swapStatus.className = "status info";
           swapStatus.textContent = "Computing difference...";
-          const diff = computeSwapDifference(dropDupes, null);
+          const diff = computeSwapDifference(dropDupes, null, hashCfg);
           if (!diff || !diff.headers.length) {
             swapStatus.className = "status info";
             swapStatus.textContent = "No difference rows found.";
@@ -2092,3 +2307,4 @@
   </script>
 </body>
 </html>
+
