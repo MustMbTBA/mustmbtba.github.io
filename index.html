@@ -717,7 +717,7 @@
         </div>
         <div class="gradline"></div>
         <p style="font-size:.88rem; margin:.1rem 0 .6rem 0;">
-          Upload two files, choose a key column in each, and export the rows that exist in one file but not the other.
+          Upload two files, choose a column in each, and export the rows that exist in one file but not the other.
         </p>
 
         <div class="row">
@@ -746,13 +746,13 @@
 
         <div class="row" style="margin-top:.7rem;">
           <div class="col-2">
-            <label for="swap-col-a">Key column in File A</label>
+            <label for="swap-col-a">Column in File A</label>
             <select id="swap-col-a">
               <option value="">Upload File A to populate columns…</option>
             </select>
           </div>
           <div class="col-2">
-            <label for="swap-col-b">Key column in File B</label>
+            <label for="swap-col-b">Column in File B</label>
             <select id="swap-col-b">
               <option value="">Upload File B to populate columns…</option>
             </select>
@@ -763,11 +763,11 @@
         <div class="radio-group" id="swap-dir-group">
           <label class="radio-item">
             <input type="radio" name="swap-dir" value="a-b" checked>
-            <span>Rows in <strong>File A</strong> whose key is <strong>not</strong> in File B (A \\ B).</span>
+            <span>Rows in <strong>File A</strong> whose Records are <strong>not</strong> in File B (A \\ B).</span>
           </label>
           <label class="radio-item">
             <input type="radio" name="swap-dir" value="b-a">
-            <span>Rows in <strong>File B</strong> whose key is <strong>not</strong> in File A (B \\ A).</span>
+            <span>Rows in <strong>File B</strong> whose Records are <strong>not</strong> in File A (B \\ A).</span>
           </label>
         </div>
 
@@ -780,7 +780,7 @@
           <div class="col-3">
             <div class="checkbox-row">
               <input id="swap-use-hash" type="checkbox" checked>
-              <label for="swap-use-hash" style="margin:0; font-weight:500;">Hash keys before comparing</label>
+              <label for="swap-use-hash" style="margin:0; font-weight:500;">Hash rows before comparing</label>
             </div>
             <div class="hint">Useful when one file stores plain values and the other stores hashes.</div>
           </div>
@@ -788,7 +788,7 @@
 
         <div class="row">
           <div class="col-3">
-            <label for="swap-hash">Hash type (for key comparison)</label>
+            <label for="swap-hash">Hash type (for comparison)</label>
             <select id="swap-hash">
               <option value="md5" selected>md5</option>
               <option value="sha1">sha1</option>
