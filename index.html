@@ -571,8 +571,130 @@
         <button type="button" class="tab-btn" data-tab="advanced">Advanced</button>
         <button type="button" class="tab-btn" data-tab="swap">Swap</button>
         <button type="button" class="tab-btn" data-tab="combine">Combine</button>
+        <button type="button" class="tab-btn" data-tab="duplicates">Duplicates</button>
+        
       </div>
+            <!-- DUPLICATES TAB -->
+      <div id="tab-duplicates" class="tab-panel">
+        <div class="card-title-row">
+          <h2 style="margin:0;">Duplicates / Overlap</h2>
+          <span class="pill">Find matching records between File A and File B</span>
+        </div>
+        <div class="gradline"></div>
+        <p style="font-size:.88rem; margin:.1rem 0 .6rem 0;">
+          Upload two files, choose a key column in each, and export the overlapping records.
+        </p>
 
+        <div class="row">
+          <div class="col-2">
+            <label for="dup-file-a">File A</label>
+            <input id="dup-file-a" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsb">
+          </div>
+          <div class="col-2">
+            <label for="dup-file-b">File B</label>
+            <input id="dup-file-b" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsb">
+          </div>
+        </div>
+
+        <h3 style="margin-top:.9rem; font-size:.95rem;">File previews</h3>
+        <div class="row">
+          <div class="col-2">
+            <div style="font-size:.8rem;font-weight:600;margin-bottom:.2rem;">File A</div>
+            <div id="dup-preview-a"></div>
+          </div>
+          <div class="col-2">
+            <div style="font-size:.8rem;font-weight:600;margin-bottom:.2rem;">File B</div>
+            <div id="dup-preview-b"></div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:.7rem;">
+          <div class="col-2">
+            <label for="dup-col-a">Key column in File A</label>
+            <select id="dup-col-a">
+              <option value="">Upload File A to populate columns…</option>
+            </select>
+          </div>
+          <div class="col-2">
+            <label for="dup-col-b">Key column in File B</label>
+            <select id="dup-col-b">
+              <option value="">Upload File B to populate columns…</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="tag-label" style="margin-top:.7rem;">Output</div>
+        <div class="radio-group" id="dup-output-group">
+          <label class="radio-item">
+            <input type="radio" name="dup-output" value="a" checked>
+            <span>Output overlapping rows from <strong>File A</strong></span>
+          </label>
+          <label class="radio-item">
+            <input type="radio" name="dup-output" value="b">
+            <span>Output overlapping rows from <strong>File B</strong></span>
+          </label>
+          <label class="radio-item">
+            <input type="radio" name="dup-output" value="keys">
+            <span>Output only the <strong>matched keys</strong></span>
+          </label>
+        </div>
+
+        <div class="checkbox-row">
+          <input id="dup-drop" type="checkbox" checked>
+          <label for="dup-drop" style="margin:0; font-weight:500;">Drop duplicate rows in the result</label>
+        </div>
+
+        <div class="row" style="margin-top:.7rem;">
+          <div class="col-3">
+            <div class="checkbox-row">
+              <input id="dup-use-hash" type="checkbox" checked>
+              <label for="dup-use-hash" style="margin:0; font-weight:500;">Hash keys before comparing</label>
+            </div>
+            <div class="hint">Useful when one file is unhashed and the other is already hashed.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-3">
+            <label for="dup-hash">Hash type (for key comparison)</label>
+            <select id="dup-hash">
+              <option value="md5" selected>md5</option>
+              <option value="sha1">sha1</option>
+              <option value="sha256">sha256</option>
+              <option value="sha512">sha512</option>
+            </select>
+          </div>
+          <div class="col-3">
+            <div class="checkbox-row">
+              <input id="dup-norm" type="checkbox" checked>
+              <label for="dup-norm" style="margin:0; font-weight:500;">Normalize to 10-digit phones (auto-detect)</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="dup-upper-input" type="checkbox" checked>
+              <label for="dup-upper-input" style="margin:0; font-weight:500;">Uppercase input before hashing</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="dup-upper-hash" type="checkbox">
+              <label for="dup-upper-hash" style="margin:0; font-weight:500;">Hashes as UPPERCASE</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint" style="margin-top:.1rem;">
+          If hashing is off, comparison is case-insensitive using trimmed uppercase values.
+        </div>
+
+        <div class="row" style="margin-top:.7rem;">
+          <div class="col-2">
+            <button id="dup-go" class="btn btn-block" type="button">Find overlap</button>
+          </div>
+        </div>
+
+        <div id="dup-status" class="status info"></div>
+        <h3 style="margin:.4rem 0 .25rem 0; font-size:.98rem;">Preview (first 25 overlapping rows)</h3>
+        <div id="dup-preview"></div>
+        <div id="dup-download-wrap" style="margin-top:.5rem;"></div>
+      </div>
       <!-- STANDARD TAB -->
       <div id="tab-standard" class="tab-panel active">
         <div class="card-title-row">
@@ -2149,7 +2271,311 @@
         });
       }
 
+            // DUPLICATES TAB
+      let dupDataA = null;
+      let dupDataB = null;
+      let dupBlob = null;
 
+      const dupFileAInput = document.getElementById("dup-file-a");
+      const dupFileBInput = document.getElementById("dup-file-b");
+      const dupColASelect = document.getElementById("dup-col-a");
+      const dupColBSelect = document.getElementById("dup-col-b");
+      const dupDropCheckbox = document.getElementById("dup-drop");
+      const dupGoBtn = document.getElementById("dup-go");
+      const dupStatus = document.getElementById("dup-status");
+      const dupPreviewContainer = document.getElementById("dup-preview");
+      const dupDownloadWrap = document.getElementById("dup-download-wrap");
+      const dupPreviewAContainer = document.getElementById("dup-preview-a");
+      const dupPreviewBContainer = document.getElementById("dup-preview-b");
+
+      const dupUseHashCheckbox = document.getElementById("dup-use-hash");
+      const dupHashSelect = document.getElementById("dup-hash");
+      const dupNormCheckbox = document.getElementById("dup-norm");
+      const dupUpperInputCheckbox = document.getElementById("dup-upper-input");
+      const dupUpperHashCheckbox = document.getElementById("dup-upper-hash");
+
+      function getDupOutputMode() {
+        const radios = document.querySelectorAll("input[name='dup-output']");
+        for (const r of radios) {
+          if (r.checked) return r.value;
+        }
+        return "a";
+      }
+
+      function getDupHashOptions() {
+        return {
+          hashType: dupHashSelect ? dupHashSelect.value : "md5",
+          normalize: dupNormCheckbox && dupNormCheckbox.checked,
+          upperInput: dupUpperInputCheckbox && dupUpperInputCheckbox.checked,
+          upperHash: dupUpperHashCheckbox && dupUpperHashCheckbox.checked
+        };
+      }
+
+      function buildDupComparableKeys(valuesRaw, colName, useHashCompare, hashOpts) {
+        if (!useHashCompare) {
+          return valuesRaw.map(v => {
+            let s = v == null ? "" : String(v).trim().toUpperCase();
+            return s;
+          });
+        }
+
+        const algo = hashOpts.hashType || "md5";
+        const normalize = !!hashOpts.normalize;
+        const upperInput = !!hashOpts.upperInput;
+        const upperHash = !!hashOpts.upperHash;
+
+        const isPreHashed = looksPreHashed(valuesRaw, algo);
+        if (isPreHashed) {
+          return valuesRaw.map(v => {
+            let s = v == null ? "" : String(v).trim();
+            if (!s) return "";
+            return upperHash ? s.toUpperCase() : s.toLowerCase();
+          });
+        }
+
+        const series = seriesForHash(valuesRaw, normalize, colName, upperInput);
+        return series.map(v => hashValue(v, algo, upperHash));
+      }
+
+      function computeDupOverlap(dropDupes, maxRows, useHashCompare, hashOpts) {
+        if (!dupDataA || !dupDataB) return null;
+
+        const colAName = dupColASelect ? dupColASelect.value : "";
+        const colBName = dupColBSelect ? dupColBSelect.value : "";
+        if (!colAName || !colBName) return null;
+
+        const idxA = dupDataA.headers.indexOf(colAName);
+        const idxB = dupDataB.headers.indexOf(colBName);
+        if (idxA === -1 || idxB === -1) return null;
+
+        const outputMode = getDupOutputMode();
+
+        const rawA = dupDataA.rows.map(r => r[idxA]);
+        const rawB = dupDataB.rows.map(r => r[idxB]);
+
+        const keysA = buildDupComparableKeys(rawA, colAName, useHashCompare, hashOpts);
+        const keysB = buildDupComparableKeys(rawB, colBName, useHashCompare, hashOpts);
+
+        const setB = new Set(keysB);
+        const setA = new Set(keysA);
+
+        let outHeaders = [];
+        let outRows = [];
+        const seenRows = dropDupes ? new Set() : null;
+
+        if (outputMode === "keys") {
+          outHeaders = ["matched_key"];
+          const seenKeys = new Set();
+          for (const key of keysA) {
+            if (!setB.has(key)) continue;
+            if (dropDupes) {
+              if (seenKeys.has(key)) continue;
+              seenKeys.add(key);
+            }
+            outRows.push([key]);
+            if (maxRows && outRows.length >= maxRows) break;
+          }
+          return { headers: outHeaders, rows: outRows };
+        }
+
+        if (outputMode === "b") {
+          outHeaders = dupDataB.headers.slice();
+          for (let i = 0; i < dupDataB.rows.length; i++) {
+            const row = dupDataB.rows[i];
+            const key = keysB[i];
+            if (!setA.has(key)) continue;
+            if (dropDupes && seenRows) {
+              const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
+              if (seenRows.has(rowKey)) continue;
+              seenRows.add(rowKey);
+            }
+            outRows.push(row.slice());
+            if (maxRows && outRows.length >= maxRows) break;
+          }
+          return { headers: outHeaders, rows: outRows };
+        }
+
+        // default: output A rows
+        outHeaders = dupDataA.headers.slice();
+        for (let i = 0; i < dupDataA.rows.length; i++) {
+          const row = dupDataA.rows[i];
+          const key = keysA[i];
+          if (!setB.has(key)) continue;
+          if (dropDupes && seenRows) {
+            const rowKey = row.map(x => x == null ? "" : String(x)).join("||");
+            if (seenRows.has(rowKey)) continue;
+            seenRows.add(rowKey);
+          }
+          outRows.push(row.slice());
+          if (maxRows && outRows.length >= maxRows) break;
+        }
+
+        return { headers: outHeaders, rows: outRows };
+      }
+
+      async function loadDupFile(which) {
+        const input = which === "a" ? dupFileAInput : dupFileBInput;
+        const select = which === "a" ? dupColASelect : dupColBSelect;
+        const previewEl = which === "a" ? dupPreviewAContainer : dupPreviewBContainer;
+        if (!input || !select || !dupStatus || !previewEl) return;
+
+        const file = input.files && input.files[0];
+        select.innerHTML = "";
+        previewEl.innerHTML = "";
+
+        if (!file) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = which === "a"
+            ? "Upload File A to populate columns…"
+            : "Upload File B to populate columns…";
+          select.appendChild(opt);
+          if (which === "a") dupDataA = null; else dupDataB = null;
+          dupPreviewContainer.innerHTML = "";
+          dupDownloadWrap.innerHTML = "";
+          dupStatus.textContent = "";
+          return;
+        }
+
+        dupStatus.className = "status info";
+        dupStatus.textContent = "Reading File " + (which === "a" ? "A" : "B") + "...";
+        dupPreviewContainer.innerHTML = "";
+        dupDownloadWrap.innerHTML = "";
+
+        try {
+          const data = await parseFile(file);
+          if (!data || !data.headers.length || !data.rows.length) {
+            dupStatus.className = "status error";
+            dupStatus.textContent = "Could not read File " + (which === "a" ? "A" : "B") + " or it is empty.";
+            if (which === "a") dupDataA = null; else dupDataB = null;
+            return;
+          }
+
+          if (which === "a") dupDataA = data; else dupDataB = data;
+
+          data.headers.forEach(h => {
+            const opt = document.createElement("option");
+            opt.value = h;
+            opt.textContent = h;
+            select.appendChild(opt);
+          });
+
+          renderTable(previewEl, data.headers, data.rows, 8);
+
+          dupStatus.className = "status info";
+          dupStatus.textContent = "Loaded File A and/or File B. Set columns and options, then click Find overlap.";
+          updateDupPreview();
+        } catch (err) {
+          dupStatus.className = "status error";
+          dupStatus.textContent = "Error reading File " + (which === "a" ? "A" : "B") + ".";
+          if (which === "a") dupDataA = null; else dupDataB = null;
+        }
+      }
+
+      function updateDupPreview() {
+        if (!dupPreviewContainer || !dupStatus) return;
+        dupPreviewContainer.innerHTML = "";
+        dupDownloadWrap.innerHTML = "";
+
+        if (!dupDataA || !dupDataB) {
+          dupStatus.className = "status info";
+          dupStatus.textContent = "Upload both File A and File B to preview the overlap.";
+          return;
+        }
+
+        const colAName = dupColASelect ? dupColASelect.value : "";
+        const colBName = dupColBSelect ? dupColBSelect.value : "";
+        if (!colAName || !colBName) {
+          dupStatus.className = "status info";
+          dupStatus.textContent = "Choose key columns for File A and File B.";
+          return;
+        }
+
+        const dropDupes = dupDropCheckbox && dupDropCheckbox.checked;
+        const useHashCompare = dupUseHashCheckbox && dupUseHashCheckbox.checked;
+        const hashOpts = getDupHashOptions();
+
+        const overlap = computeDupOverlap(dropDupes, 25, useHashCompare, hashOpts);
+        if (!overlap || !overlap.headers.length) {
+          dupStatus.className = "status info";
+          dupStatus.textContent = "No overlap found for the current selection.";
+          return;
+        }
+
+        renderTable(dupPreviewContainer, overlap.headers, overlap.rows, 25);
+        dupStatus.className = "status success";
+        dupStatus.textContent = "Preview shows up to 25 overlapping rows.";
+      }
+
+      if (dupFileAInput) dupFileAInput.addEventListener("change", () => loadDupFile("a"));
+      if (dupFileBInput) dupFileBInput.addEventListener("change", () => loadDupFile("b"));
+      if (dupColASelect) dupColASelect.addEventListener("change", updateDupPreview);
+      if (dupColBSelect) dupColBSelect.addEventListener("change", updateDupPreview);
+      const dupOutputGroup = document.getElementById("dup-output-group");
+      if (dupOutputGroup) dupOutputGroup.addEventListener("change", updateDupPreview);
+      if (dupDropCheckbox) dupDropCheckbox.addEventListener("change", updateDupPreview);
+      if (dupUseHashCheckbox) dupUseHashCheckbox.addEventListener("change", updateDupPreview);
+      if (dupHashSelect) dupHashSelect.addEventListener("change", updateDupPreview);
+      if (dupNormCheckbox) dupNormCheckbox.addEventListener("change", updateDupPreview);
+      if (dupUpperInputCheckbox) dupUpperInputCheckbox.addEventListener("change", updateDupPreview);
+      if (dupUpperHashCheckbox) dupUpperHashCheckbox.addEventListener("change", updateDupPreview);
+
+      if (dupGoBtn) {
+        dupGoBtn.addEventListener("click", () => {
+          if (!dupStatus || !dupDownloadWrap) return;
+          dupDownloadWrap.innerHTML = "";
+
+          if (!dupDataA || !dupDataB) {
+            dupStatus.className = "status error";
+            dupStatus.textContent = "Upload both File A and File B.";
+            return;
+          }
+
+          const colAName = dupColASelect ? dupColASelect.value : "";
+          const colBName = dupColBSelect ? dupColBSelect.value : "";
+          if (!colAName || !colBName) {
+            dupStatus.className = "status error";
+            dupStatus.textContent = "Choose key columns for File A and File B.";
+            return;
+          }
+
+          const dropDupes = dupDropCheckbox && dupDropCheckbox.checked;
+          const useHashCompare = dupUseHashCheckbox && dupUseHashCheckbox.checked;
+          const hashOpts = getDupHashOptions();
+
+          dupStatus.className = "status info";
+          dupStatus.textContent = "Computing overlap...";
+
+          const overlap = computeDupOverlap(dropDupes, null, useHashCompare, hashOpts);
+          if (!overlap || !overlap.headers.length) {
+            dupStatus.className = "status info";
+            dupStatus.textContent = "No overlap found.";
+            return;
+          }
+
+          renderTable(dupPreviewContainer, overlap.headers, overlap.rows, 25);
+
+          const csv = toCsv(overlap.headers, overlap.rows);
+          dupBlob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.type = "button";
+          btn.textContent = "Download overlap (CSV)";
+          btn.addEventListener("click", () => {
+            if (!dupBlob) return;
+            const baseA = dupDataA ? baseName(dupDataA.name) : "fileA";
+            const baseB = dupDataB ? baseName(dupDataB.name) : "fileB";
+            const mode = getDupOutputMode();
+            const outName = baseA + "_" + baseB + "_overlap_" + mode + ".csv";
+            saveAs(dupBlob, outName);
+          });
+          dupDownloadWrap.appendChild(btn);
+
+          dupStatus.className = "status success";
+          dupStatus.textContent = "Overlap computed: " + overlap.rows.length.toLocaleString() + " row(s).";
+        });
+      }
       // COMBINE TAB
       const combineFilesInput = document.getElementById("combine-files");
       const combineDropCheckbox = document.getElementById("combine-drop");
