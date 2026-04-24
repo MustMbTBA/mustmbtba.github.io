@@ -1102,15 +1102,18 @@
       container.appendChild(wrap);
     }
     function hashValue(str, algo, outputUppercase) {
-      const s = String(str == null ? "" : str);
-      let hex;
-      if (algo === "md5") hex = CryptoJS.MD5(s).toString();
-      else if (algo === "sha1") hex = CryptoJS.SHA1(s).toString();
-      else if (algo === "sha256") hex = CryptoJS.SHA256(s).toString();
-      else if (algo === "sha512") hex = CryptoJS.SHA512(s).toString();
-      else hex = CryptoJS.MD5(s).toString();
-      return outputUppercase ? hex.toUpperCase() : hex;
-    }
+  const s = str == null ? "" : String(str).trim();
+  if (!s) return "";
+
+  let hex;
+  if (algo === "md5") hex = CryptoJS.MD5(s).toString();
+  else if (algo === "sha1") hex = CryptoJS.SHA1(s).toString();
+  else if (algo === "sha256") hex = CryptoJS.SHA256(s).toString();
+  else if (algo === "sha512") hex = CryptoJS.SHA512(s).toString();
+  else hex = CryptoJS.MD5(s).toString();
+
+  return outputUppercase ? hex.toUpperCase() : hex;
+}
     const digitRe = /\D+/g;
     function normalizePhoneValue(x) {
       const s = x == null ? "" : String(x);
@@ -1145,22 +1148,32 @@
       return count / total >= 0.6;
     }
     function seriesForHash(values, normalizeEnabled, colName, uppercaseInput) {
-      const out = [];
-      if (!values) return out;
-      const shouldNormalize = normalizeEnabled && looksLikePhone(values, colName);
-      for (let i = 0; i < values.length; i++) {
-        const v = values[i];
-        const raw = v == null ? "" : String(v);
-        let s = raw;
-        if (shouldNormalize) {
-          const n = normalizePhoneValue(raw);
-          s = n || raw;
-        }
-        if (uppercaseInput) s = s.toUpperCase();
-        out.push(s);
-      }
-      return out;
+  const out = [];
+  if (!values) return out;
+  const shouldNormalize = normalizeEnabled && looksLikePhone(values, colName);
+
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    const raw = v == null ? "" : String(v);
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      out.push("");
+      continue;
     }
+
+    let s = trimmed;
+
+    if (shouldNormalize) {
+      const n = normalizePhoneValue(trimmed);
+      s = n || trimmed;
+    }
+
+    if (uppercaseInput) s = s.toUpperCase();
+    out.push(s);
+  }
+  return out;
+}
     function parseRenames(text) {
       const map = {};
       if (!text) return map;
@@ -1482,6 +1495,7 @@
         const unique = [];
         const seen = new Set();
         for (const h of hashed) {
+          if (!h) continue;
           if (seen.has(h)) continue;
           seen.add(h);
           unique.push(h);
@@ -1621,6 +1635,7 @@
                   }
                   if (upperInput) v = v.toUpperCase();
                   const h = hashValue(v, algo, upperHash);
+                  if (!h) continue;
                   if (seen.has(h)) continue;
                   seen.add(h);
                   rowsOut.push([h]);
